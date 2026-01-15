@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { X, Layout, Upload, Undo2, Redo2, Trash2, MousePointer2, Hand, ZoomIn, ZoomOut, Move, Layers, GripVertical, Image as ImageIcon, Maximize, Palette, Check, Square, Plus } from 'lucide-react';
 import { PackagingState } from '../types';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Center, OrbitControls } from '@react-three/drei';
+import { Center, OrbitControls, Environment } from '@react-three/drei';
 import { PackagingMesh } from './Scene';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -162,15 +162,20 @@ const PreviewScene: React.FC<{ config: PackagingState; canvasRef: React.RefObjec
     });
 
     return (
-        <group>
-            <ambientLight intensity={0.8} />
-            <directionalLight position={[5, 5, 5]} intensity={1.2} />
-            <directionalLight position={[-5, 5, 2]} intensity={0.5} />
+        <React.Suspense fallback={null}>
+            <color attach="background" args={['#f3f4f6']} />
+            {/* Natural lighting environment */}
+            <Environment preset="city" />
+
+            {/* Subtle balanced lights */}
+            <ambientLight intensity={0.4} />
+            <directionalLight position={[5, 10, 5]} intensity={0.8} castShadow shadow-mapSize={[1024, 1024]} />
+            <directionalLight position={[-5, 5, 5]} intensity={0.3} />
             <Center>
                 <PackagingMesh config={{ ...config, textureUrl: null }} overrideTexture={canvasTexture} />
             </Center>
             <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI} enablePan={false} autoRotate={true} autoRotateSpeed={1.0} />
-        </group>
+        </React.Suspense>
     );
 };
 
@@ -1272,7 +1277,15 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             {/* 3. 3D Preview */}
             <div className="absolute top-20 right-8 w-80 h-80 bg-white rounded-2xl border border-white/50 shadow-2xl overflow-hidden z-30 ring-1 ring-gray-100">
                 <div className="relative w-full h-full bg-gray-50">
-                    <Canvas shadows camera={{ position: [0, 0, 3.2], fov: 40 }}>
+                    <Canvas
+                        shadows
+                        camera={{ position: [0, 0, 3.2], fov: 40 }}
+                        gl={{
+                            antialias: true,
+                            toneMapping: THREE.ACESFilmicToneMapping,
+                            toneMappingExposure: 1.0
+                        }}
+                    >
                         <React.Suspense fallback={null}>
                             <PreviewScene config={config} canvasRef={canvasRef} version={previewVersion} />
                         </React.Suspense>

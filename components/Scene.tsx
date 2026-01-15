@@ -506,21 +506,24 @@ const Scene: React.FC<SceneProps> = ({ config, onModelClick }) => {
       <Canvas
         shadows
         dpr={[1, 2]}
-        camera={{ fov: 35, position: [0, 0, defaultCameraDistance] }}
         gl={{
           antialias: true,
           toneMapping: THREE.ACESFilmicToneMapping,
           toneMappingExposure: 1.0,
           preserveDrawingBuffer: true,
-          powerPreference: "high-performance" // Hint to browser
+          powerPreference: "high-performance"
         }}
         camera={{ fov: 35, position: [0, 0, defaultCameraDistance], near: 0.1, far: 1000 }}
       >
         <React.Suspense fallback={null}>
           <color attach="background" args={['#f3f4f6']} />
-          <ambientLight intensity={0.9} />
-          <directionalLight position={[5, 10, 5]} intensity={1.2} castShadow shadow-mapSize={[1024, 1024]} />
-          <directionalLight position={[-5, 5, 5]} intensity={0.6} />
+          {/* Natural lighting environment */}
+          <Environment preset="city" />
+
+          {/* Subtle balanced lights */}
+          <ambientLight intensity={0.4} />
+          <directionalLight position={[5, 10, 5]} intensity={0.8} castShadow shadow-mapSize={[1024, 1024]} />
+          <directionalLight position={[-5, 5, 5]} intensity={0.3} />
           <group position={[0, 0, 0]}>
             <Center>
               <PackagingMesh config={config} onClick={onModelClick} />
