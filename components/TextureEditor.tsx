@@ -7,6 +7,35 @@ import { PackagingMesh } from './Scene';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
+// --- Constants for SVG Shapes ---
+const REGION_SVG_PATHS: Record<string, { d: string, w: number, h: number }> = {
+    front: {
+        d: "M0,185Q154,430.5,48.5,527L48.5,1502.5L1017,1502.5L1017,527Q902.5,436,1065,185Q850,58,754,0Q717,234.5,533,234.5Q351,241.5,311,0L0,185Z",
+        w: 1065,
+        h: 1502.5
+    },
+    back: {
+        d: "M0,1502.5006L1060.5,1502.5006L1060.5,510.00049Q895.5,385.50586,1028,106.00307Q793,36.505859,692.5,0Q591,39.005859,525,39.005859Q436.5,39.005859,373.5,0L38,106.00391Q152,441.00586,0.5,510.00049Q0.5,641.00049,0,1502.5006Z",
+        w: 1060.5,
+        h: 1502.5
+    },
+    sleeve_l: {
+        d: "M0,212L0,531L773,531L773,212C667.5,182,579.75,0,386.5,0C193.25,0,93.5,187,0,212Z",
+        w: 773,
+        h: 531
+    },
+    sleeve_r: {
+        d: "M0,212L0,531L773,531L773,212C667.5,182,579.75,0,386.5,0C193.25,0,93.5,187,0,212Z",
+        w: 773,
+        h: 531
+    },
+    collar: {
+        d: "M0,0L773,0L773,170L0,170Z",
+        w: 773,
+        h: 170
+    }
+};
+
 // --- Types ---
 
 interface Layer {
@@ -756,30 +785,48 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
         // Render each region independently
         regions.forEach(region => {
-            // Create a clipping path for this region
             ctx.save();
 
-            // Set clipping region
-            ctx.beginPath();
-            if (config.shape === 'mannequin') {
-                // Use rounded rectangle for mannequin regions
-                const radius = Math.min(region.w, region.h) * 0.1;
-                ctx.roundRect(region.x, region.y, region.w, region.h, radius);
+            // 1. Set Shape Clipping
+            const pathData = REGION_SVG_PATHS[region.id];
+            if (pathData && config.shape === 'mannequin') {
+                const scaleX = region.w / pathData.w;
+                const scaleY = region.h / pathData.h;
+                const p = new Path2D(pathData.d);
+                ctx.translate(region.x, region.y);
+                ctx.scale(scaleX, scaleY);
+                ctx.clip(p);
+                // Fill background in normalized space
+                ctx.fillStyle = faceColors[region.id] || config.color;
+                ctx.fillRect(0, 0, pathData.w, pathData.h);
             } else {
-                ctx.rect(region.x, region.y, region.w, region.h);
+                ctx.beginPath();
+                if (config.shape === 'mannequin') {
+                    const radius = Math.min(region.w, region.h) * 0.1;
+                    ctx.roundRect(region.x, region.y, region.w, region.h, radius);
+                } else {
+                    ctx.rect(region.x, region.y, region.w, region.h);
+                }
+                ctx.clip();
+                ctx.fillStyle = faceColors[region.id] || config.color;
+                ctx.fillRect(region.x, region.y, region.w, region.h);
             }
-            ctx.clip();
 
-            // Region Background - use face color if set, otherwise use global color
-            const regionColor = faceColors[region.id] || config.color;
-            ctx.fillStyle = regionColor;
-            ctx.fillRect(region.x, region.y, region.w, region.h);
-
-            // Render layers that belong to this region
+            // 2. Render Layers belonging to this region
             layers.forEach(layer => {
                 const layerRegion = getLayerRegion(layer);
                 if (layerRegion && layerRegion.id === region.id) {
                     ctx.save();
+                    // Each layer is rendered in global coordinates, so no extra translate needed if not using pathData
+                    // BUT if we used ctx.scale/translate for pathData, we need to be careful.
+                    // Actually, let's keep it simple: 
+                    // If pathData was used, the matrix is currently scaled/translated.
+                    // We need to either draw in that space or reset.
+
+                    if (pathData && config.shape === 'mannequin') {
+                        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset to global temporarily
+                    }
+
                     ctx.translate(layer.x, layer.y);
                     ctx.rotate((layer.rotation * Math.PI) / 180);
                     ctx.scale(layer.scale, layer.scale);
@@ -1151,52 +1198,25 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                 const isHovered = selectedRegionId === region.id;
                                 const hasColor = faceColors[region.id] !== null && faceColors[region.id] !== undefined;
 
-                                // Generate custom path based on region type for mannequin
-                                const getRegionPath = (r: Region): string => {
-                                    if (config.shape === 'mannequin') {
-                                        const { x, y, w, h } = r;
-                                        if (r.id === 'front' || r.id === 'back') {
-                                            // Torso shape with rounded top (neckline) and bottom
-                                            const neckRadius = w * 0.15;
-                                            const bottomRadius = w * 0.1;
-                                            return `M ${x},${y + neckRadius} 
-                                            Q ${x},${y} ${x + neckRadius},${y}
-                                            L ${x + w - neckRadius},${y}
-                                            Q ${x + w},${y} ${x + w},${y + neckRadius}
-                                            L ${x + w},${y + h - bottomRadius}
-                                            Q ${x + w},${y + h} ${x + w - bottomRadius},${y + h}
-                                            L ${x + bottomRadius},${y + h}
-                                            Q ${x},${y + h} ${x},${y + h - bottomRadius}
-                                            Z`;
-                                        } else if (r.id === 'sleeve_l' || r.id === 'sleeve_r') {
-                                            // Sleeve shape: rounded rectangle with arch top
-                                            const cornerRadius = Math.min(w, h) * 0.15;
-                                            return `M ${x + cornerRadius},${y}
-                                            L ${x + w - cornerRadius},${y}
-                                            Q ${x + w},${y} ${x + w},${y + cornerRadius}
-                                            L ${x + w},${y + h - cornerRadius}
-                                            Q ${x + w},${y + h} ${x + w - cornerRadius},${y + h}
-                                            L ${x + cornerRadius},${y + h}
-                                            Q ${x},${y + h} ${x},${y + h - cornerRadius}
-                                            L ${x},${y + cornerRadius}
-                                            Q ${x},${y} ${x + cornerRadius},${y}
-                                            Z`;
-                                        } else if (r.id === 'collar') {
-                                            // Collar shape: curved rectangle
-                                            const cornerRadius = Math.min(w, h) * 0.2;
-                                            return `M ${x + cornerRadius},${y}
-                                            L ${x + w - cornerRadius},${y}
-                                            Q ${x + w},${y} ${x + w},${y + h}
-                                            L ${x + w - cornerRadius},${y + h}
-                                            Q ${x + w / 2},${y + h * 0.7} ${x + cornerRadius},${y + h}
-                                            L ${x},${y + h}
-                                            Q ${x},${y} ${x + cornerRadius},${y}
-                                            Z`;
-                                        }
+                                // Get SVG Path and corresponding scale transform
+                                const getRegionPathInfo = (r: Region) => {
+                                    const pathData = REGION_SVG_PATHS[r.id];
+                                    if (pathData && config.shape === 'mannequin') {
+                                        const scaleX = r.w / pathData.w;
+                                        const scaleY = r.h / pathData.h;
+                                        return {
+                                            d: pathData.d,
+                                            transform: `translate(${r.x}, ${r.y}) scale(${scaleX}, ${scaleY})`
+                                        };
                                     }
-                                    // Default rectangle for other shapes
-                                    return `M ${region.x},${region.y} L ${region.x + region.w},${region.y} L ${region.x + region.w},${region.y + region.h} L ${region.x},${region.y + region.h} Z`;
+                                    // Default rectangle
+                                    return {
+                                        d: `M 0 0 L ${r.w} 0 L ${r.w} ${r.h} L 0 ${r.h} Z`,
+                                        transform: `translate(${r.x}, ${r.y})`
+                                    };
                                 };
+
+                                const pathInfo = getRegionPathInfo(region);
 
                                 return (
                                     <g
@@ -1212,7 +1232,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                         {/* Region Background (if has color) */}
                                         {hasColor && (
                                             <path
-                                                d={getRegionPath(region)}
+                                                d={pathInfo.d}
+                                                transform={pathInfo.transform}
                                                 fill={faceColors[region.id] || 'transparent'}
                                                 opacity={0.3}
                                                 className="transition-opacity pointer-events-none"
@@ -1221,7 +1242,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
                                         {/* Region Border/Shape */}
                                         <path
-                                            d={getRegionPath(region)}
+                                            d={pathInfo.d}
+                                            transform={pathInfo.transform}
                                             fill="rgba(255, 255, 255, 0.02)"
                                             stroke={isSelected || isHovered ? '#3b82f6' : 'rgba(0, 0, 0, 0.15)'}
                                             strokeWidth={isSelected || isHovered ? 2.5 : 1}
