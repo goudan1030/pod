@@ -367,8 +367,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
     // Define Clickable Regions based on Shape
     const getRegions = useCallback((w: number, h: number): Region[] => {
-        // 1. Mannequin / T-shirt (Proportional Sync with Scene.tsx)
-        if (config.shape === 'mannequin' || config.shape === 'custom') {
+        // 1. Mannequin / T-shirt (Official Template)
+        if (config.shape === 'mannequin') {
             return [
                 { id: 'front', label: '前片 (Front)', x: 0, y: 0, w: w * 0.35, h: h },
                 { id: 'back', label: '后片 (Back)', x: w * 0.35, y: 0, w: w * 0.35, h: h },
@@ -376,6 +376,21 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 { id: 'sleeve_r', label: '右袖 (Sleeve R)', x: w * 0.70, y: h * 0.34, w: w * 0.30, h: h * 0.33 },
                 { id: 'collar', label: '领口 (Collar)', x: w * 0.70, y: h * 0.67, w: w * 0.30, h: h * 0.33 },
             ];
+        }
+
+        // 1.5 Custom Model (Dynamic regions based on mesh parts)
+        if (config.shape === 'custom' && customPartsLayout.length > 0) {
+            return customPartsLayout.map(layout => {
+                const part = customParts[layout.partIndex];
+                return {
+                    id: part.name,
+                    label: part.name,
+                    x: layout.packedX,
+                    y: layout.packedY,
+                    w: layout.packedW,
+                    h: layout.packedH
+                };
+            });
         }
         // 2. Bottle / Can
         if (config.shape === 'bottle' || config.shape === 'can') {
@@ -721,6 +736,34 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         setPreviewVersion(v => v + 1);
     }
 
+    // --- UV Boundary Helpers (for Custom Models/Hoodies) ---
+    const getUVPath = useCallback((r: Region) => {
+        // Find the custom part associated with this region
+        const part = customParts.find(p => p.name === r.id);
+        if (!part || !part.boundaries || part.boundaries.length === 0) return null;
+
+        const layout = customPartsLayout.find(l => customParts[l.partIndex].name === r.id);
+        if (!layout) return null;
+
+        // Normalize segments to 0-1 within their own bounding box
+        let path = "";
+        const uvs = part.boundaries;
+        // Optimization: Use a smaller coordinate space for SVG path to keep string short
+        const W = 1000, H = 1000;
+
+        for (let i = 0; i < uvs.length; i += 4) {
+            const u1 = (uvs[i] - layout.originalMinU) / (layout.originalMaxU - layout.originalMinU);
+            const v1 = (uvs[i + 1] - layout.originalMinV) / (layout.originalMaxV - layout.originalMinV);
+            const u2 = (uvs[i + 2] - layout.originalMinU) / (layout.originalMaxU - layout.originalMinU);
+            const v2 = (uvs[i + 3] - layout.originalMinV) / (layout.originalMaxV - layout.originalMinV);
+
+            // Using Move-Line for segments. While not perfectly joined, it renders correctly 
+            // and Path2D can handle it for clipping if they are coincident.
+            path += `M ${u1 * W} ${v1 * H} L ${u2 * W} ${v2 * H} `;
+        }
+        return { d: path, w: W, h: H };
+    }, [customParts, customPartsLayout]);
+
     // Math helpers...
     const screenToCanvas = (sx: number, sy: number) => {
         if (!containerRef.current) return { x: 0, y: 0 };
@@ -784,10 +827,10 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             ctx.save();
 
             // 1. Set Shape Clipping
-            const pathData = REGION_SVG_PATHS[region.id];
-            const isTshirtShape = config.shape === 'mannequin' || config.shape === 'custom';
+            const pathData = REGION_SVG_PATHS[region.id] || (config.shape === 'custom' ? getUVPath(region) : null);
+            const isTshirtShape = config.shape === 'mannequin' || (config.shape === 'custom' && REGION_SVG_PATHS[region.id]);
 
-            if (pathData && isTshirtShape) {
+            if (pathData) {
                 const scaleX = region.w / pathData.w;
                 const scaleY = region.h / pathData.h;
                 const p = new Path2D(pathData.d);
@@ -1195,10 +1238,10 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
                                 // Get SVG Path and corresponding scale transform
                                 const getRegionPathInfo = (r: Region) => {
-                                    const pathData = REGION_SVG_PATHS[r.id];
-                                    const isTshirtShape = config.shape === 'mannequin' || config.shape === 'custom';
+                                    const pathData = REGION_SVG_PATHS[r.id] || (config.shape === 'custom' ? getUVPath(r) : null);
+                                    const isTshirtShape = config.shape === 'mannequin' || (config.shape === 'custom' && REGION_SVG_PATHS[r.id]);
 
-                                    if (pathData && isTshirtShape) {
+                                    if (pathData) {
                                         const scaleX = r.w / pathData.w;
                                         const scaleY = r.h / pathData.h;
                                         return {
