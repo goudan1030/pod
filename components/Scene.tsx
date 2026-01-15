@@ -140,9 +140,15 @@ export const CustomModel: React.FC<{ url: string; config: PackagingState; materi
           mat.map = materialProps.map;
         }
 
-        // Always enable transparency for textures from canvas
-        mat.transparent = true;
-        mat.side = THREE.DoubleSide; // Help with flipped normals in some models
+        // Check if this part should be transparent (decals/stickers) or opaque (main fabric)
+        const isDecal = isPart(['贴图', 'sticker', 'decal', 'label', 'logo']);
+
+        // Fix for "Snowflake" flickering:
+        // Main parts should NOT be transparent unless strictly needed, to ensure DepthWrite works correctly.
+        mat.transparent = isDecal;
+        mat.alphaTest = isDecal ? 0.05 : 0; // Use alphaTest for decals to help with sorting
+        mat.depthWrite = true; // Always write to depth buffer to prevent Z-fighting snowflakes
+        mat.side = THREE.DoubleSide; // Keep DoubleSide for single-walled meshes
 
         mesh.material = mat;
         mesh.castShadow = true;
@@ -195,7 +201,7 @@ export const PackagingMesh: React.FC<{ config: PackagingState; overrideTexture?:
     emissive: hovered ? '#3b82f6' : '#000000',
     emissiveIntensity: hovered ? 0.2 : 0,
     map: activeTexture,
-    transparent: true,
+    transparent: false, // Default to false to prevent "snowflake" flickering in standard meshes too
   }), [config.color, config.roughness, config.metalness, config.shape, activeTexture, hovered]);
 
   // Texture Transformation Logic
