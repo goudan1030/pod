@@ -1,0 +1,63 @@
+<svg width="2048" height="2048" viewBox="0 0 2048 2048" xmlns="http://www.w3.org/2000/svg">
+  <!-- 
+    完整的区域映射文件
+    所有路径使用 data-region-id 和 data-region-label 属性
+    
+    布局：
+    - 前身：左侧约35%宽度 (约716px宽, 从x=40开始)
+    - 后身：中间约35%宽度 (约716px宽, 从x=796开始)
+    - 左袖：右侧顶部 (约536px宽, 从x=1512开始, y=40-408)
+    - 右袖：右侧中间 (约536px宽, 从x=1512开始, y=571-939)
+    - 领口：右侧底部 (约536px宽, 从x=1512开始, y=1142-1312)
+  -->
+  
+  <!-- 前身区域 (Front Body) - 简化路径，适配左侧位置 -->
+  <path 
+    data-region-id="front" 
+    data-region-label="前身 (Front Body)"
+    d="M 40,160 Q 140,280 70,330 L 70,1008 L 716,1008 L 716,330 Q 610,280 716,160 Q 540,76 478,40 Q 455,251 338,251 Q 223,256 197,40 L 40,160 Z"
+    fill="none"
+    stroke="#333333"
+    stroke-width="2"
+  />
+  
+  <!-- 后身区域 (Back Body) - 简化路径，适配中间位置 -->
+  <path 
+    data-region-id="back" 
+    data-region-label="后身 (Back Body)"
+    d="M 796,40 L 1512,40 L 1512,330 Q 1341,246 1491,67 Q 1233,23 1129,40 Q 1129,65 996,65 Q 864,65 818,40 L 816,67 Q 902,284 796,330 Q 796,493 796,1008 Z"
+    fill="none"
+    stroke="#333333"
+    stroke-width="2"
+  />
+  
+  <!-- 左袖区域 (Left Sleeve) - 右侧顶部 -->
+  <path 
+    data-region-id="sleeve_l" 
+    data-region-label="左袖 (Left Sleeve)"
+    d="M 1512,147 L 1512,408 L 2048,408 L 2048,147 C 1946,126 1852,40 1920,40 C 1842,40 1625,127 1512,147 Z"
+    fill="none"
+    stroke="#333333"
+    stroke-width="2"
+  />
+  
+  <!-- 右袖区域 (Right Sleeve) - 右侧中间 -->
+  <path 
+    data-region-id="sleeve_r" 
+    data-region-label="右袖 (Right Sleeve)"
+    d="M 1512,678 L 1512,939 L 2048,939 L 2048,678 C 1946,657 1852,571 1920,571 C 1842,571 1625,658 1512,678 Z"
+    fill="none"
+    stroke="#333333"
+    stroke-width="2"
+  />
+  
+  <!-- 领口区域 (Collar) - 右侧底部矩形 -->
+  <path 
+    data-region-id="collar" 
+    data-region-label="领口 (Collar)"
+    d="M 1512,1142 L 2048,1142 L 2048,1312 L 1512,1312 Z"
+    fill="none"
+    stroke="#333333"
+    stroke-width="2"
+  />
+</svg>
