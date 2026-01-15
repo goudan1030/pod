@@ -254,14 +254,10 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
     const canvasConfig = useMemo(() => {
         switch (config.shape) {
-            case 'mannequin': return { width: 2048, height: 1024 };
+            case 'mannequin':
+            case 'custom': return { width: 2048, height: 1024 };
             case 'bottle':
             case 'can': return { width: 2048, height: 1024 };
-            case 'pouch': return { width: 1024, height: 1024 };
-            case 'box':
-            case 'mailer':
-            case 'tuck': return { width: 1024, height: 1024 };
-            case 'custom': return { width: 2048, height: 2048 };
             default: return { width: 1024, height: 1024 };
         }
     }, [config.shape]);
@@ -789,7 +785,9 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
             // 1. Set Shape Clipping
             const pathData = REGION_SVG_PATHS[region.id];
-            if (pathData && config.shape === 'mannequin') {
+            const isTshirtShape = config.shape === 'mannequin' || config.shape === 'custom';
+
+            if (pathData && isTshirtShape) {
                 const scaleX = region.w / pathData.w;
                 const scaleY = region.h / pathData.h;
                 const p = new Path2D(pathData.d);
@@ -801,7 +799,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 ctx.fillRect(0, 0, pathData.w, pathData.h);
             } else {
                 ctx.beginPath();
-                if (config.shape === 'mannequin') {
+                if (isTshirtShape) {
                     const radius = Math.min(region.w, region.h) * 0.1;
                     ctx.roundRect(region.x, region.y, region.w, region.h, radius);
                 } else {
@@ -817,14 +815,11 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 const layerRegion = getLayerRegion(layer);
                 if (layerRegion && layerRegion.id === region.id) {
                     ctx.save();
-                    // Each layer is rendered in global coordinates, so no extra translate needed if not using pathData
-                    // BUT if we used ctx.scale/translate for pathData, we need to be careful.
-                    // Actually, let's keep it simple: 
-                    // If pathData was used, the matrix is currently scaled/translated.
-                    // We need to either draw in that space or reset.
-
-                    if (pathData && config.shape === 'mannequin') {
-                        ctx.setTransform(1, 0, 0, 1, 0, 0); // Reset to global temporarily
+                    // Critical: if we used pathData above, the matrix is currently scaled/translated.
+                    // We need to either work in that space or reset to global.
+                    // To keep layer positioning intuitive (global canvas coords), we reset.
+                    if (pathData && isTshirtShape) {
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
                     }
 
                     ctx.translate(layer.x, layer.y);
@@ -1201,7 +1196,9 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                 // Get SVG Path and corresponding scale transform
                                 const getRegionPathInfo = (r: Region) => {
                                     const pathData = REGION_SVG_PATHS[r.id];
-                                    if (pathData && config.shape === 'mannequin') {
+                                    const isTshirtShape = config.shape === 'mannequin' || config.shape === 'custom';
+
+                                    if (pathData && isTshirtShape) {
                                         const scaleX = r.w / pathData.w;
                                         const scaleY = r.h / pathData.h;
                                         return {
