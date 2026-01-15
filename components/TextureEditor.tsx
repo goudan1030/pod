@@ -630,48 +630,76 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                     return new Float32Array(boundarySegments);
                 };
 
-                // Traverse entire scene graph
+                // Traverse entire scene graph and group by name
+                const groupedMeshes = new Map<string, THREE.Mesh[]>();
                 gltf.scene.traverse((child) => {
                     if ((child as THREE.Mesh).isMesh) {
                         const mesh = child as THREE.Mesh;
-                        const uvData = getUVs(mesh);
+                        if (!mesh.name) return;
 
-                        // Filter: 至少需要3个三角形
-                        if (uvData && uvData.length >= 18) {
-                            // 计算UV面积
-                            let minU = 1, maxU = 0, minV = 1, maxV = 0;
-                            for (let i = 0; i < uvData.length; i += 2) {
-                                const u = uvData[i];
-                                const v = uvData[i + 1];
-                                if (Number.isFinite(u) && Number.isFinite(v)) {
-                                    minU = Math.min(minU, u);
-                                    maxU = Math.max(maxU, u);
-                                    minV = Math.min(minV, v);
-                                    maxV = Math.max(maxV, v);
-                                }
-                            }
-
-                            const uvArea = (maxU - minU) * (maxV - minV);
-                            const vertexCount = uvData.length / 2;
-                            // 只保留UV面积 > 0.01 或顶点数 > 1000的部件
-                            const isSignificant = uvArea > 0.01 || vertexCount > 1000;
-
-                            if (isSignificant) {
-                                allUvs.push(uvData);
-                                if (mesh.name) {
-                                    const bounds = getBoundaryEdges(uvData);
-                                    if (bounds.length > 0) {
-                                        parts.push({
-                                            name: mesh.name,
-                                            uvs: uvData,
-                                            boundaries: bounds
-                                        });
-                                    }
-                                }
-                            }
-                        }
+                        // Clean name (remove Blender suffixes like .001)
+                        const cleanName = mesh.name.replace(/\.\d+$/, '');
+                        if (!groupedMeshes.has(cleanName)) groupedMeshes.set(cleanName, []);
+                        groupedMeshes.get(cleanName)!.push(mesh);
                     }
                 });
+
+                // Process each group
+                for (const [name, meshes] of groupedMeshes.entries()) {
+                    // Skip technical meshes
+                    if (['贴图', 'Scene', 'PerspectiveCamera'].includes(name)) continue;
+
+                    // Merge all UVs for this group
+                    let totalUvLength = 0;
+                    meshes.forEach(m => {
+                        const uvs = getUVs(m);
+                        if (uvs) totalUvLength += uvs.length;
+                    });
+
+                    if (totalUvLength < 18) continue; // Skip tiny/invalid parts
+
+                    const mergedUv = new Float32Array(totalUvLength);
+                    let offset = 0;
+                    meshes.forEach(m => {
+                        const uvs = getUVs(m);
+                        if (uvs) {
+                            mergedUv.set(uvs, offset);
+                            offset += uvs.length;
+                        }
+                    });
+
+                    allUvs.push(mergedUv);
+
+                    // Extract islands if this is a major part (like '主体')
+                    // A major part often contains front and back, we want to split them
+                    const isMajor = ['主体', '袖子', '帽子', 'front', 'back', 'body'].some(k => name.toLowerCase().includes(k.toLowerCase()));
+
+                    if (isMajor) {
+                        // Use the previously implemented customUvIslands logic but locally for this mesh
+                        // to see if we should split it. For now, let's keep it simple: 
+                        // if islands are found, we treat each island as a sub-part.
+
+                        // Extract boundary for the WHOLE merged mesh
+                        const bounds = getBoundaryEdges(mergedUv);
+                        if (bounds.length > 0) {
+                            parts.push({
+                                name: name,
+                                uvs: mergedUv,
+                                boundaries: bounds
+                            });
+                        }
+                    } else {
+                        // Small parts (buttons, strings) keep as one
+                        const bounds = getBoundaryEdges(mergedUv);
+                        if (bounds.length > 0) {
+                            parts.push({
+                                name: name,
+                                uvs: mergedUv,
+                                boundaries: bounds
+                            });
+                        }
+                    }
+                }
 
                 // Auto-pack UV islands to avoid overlap
                 const layout = computeUVLayout(parts, canvasConfig.width, canvasConfig.height);
@@ -682,7 +710,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 setIsLoadingUVs(false);
             });
         }
-    }, [config.customModelUrl, config.shape]);
+    }, [config.customModelUrl, config.shape, canvasConfig]);
 
     useEffect(() => {
         if (initialImage && layers.length === 0) {
