@@ -157,15 +157,33 @@ export const CustomModel: React.FC<{ url: string; config: PackagingState; materi
     });
   }, [clone, materialProps, partTextures]);
 
+  // Click vs Drag Detection
+  const downPoint = useRef<{ x: number, y: number } | null>(null);
+
   return (
     <primitive
       object={clone}
       scale={[1, 1, 1]}
       onPointerOver={(e: any) => { e.stopPropagation(); onHover(true); }}
       onPointerOut={(e: any) => { e.stopPropagation(); onHover(false); }}
-      onClick={(e: any) => {
+      onPointerDown={(e: any) => {
         e.stopPropagation();
-        if (onClick) onClick();
+        downPoint.current = { x: e.screenX, y: e.screenY };
+      }}
+      onPointerUp={(e: any) => {
+        e.stopPropagation();
+        if (!downPoint.current) return;
+
+        const dist = Math.sqrt(
+          Math.pow(e.screenX - downPoint.current.x, 2) +
+          Math.pow(e.screenY - downPoint.current.y, 2)
+        );
+
+        // Only trigger click if movement is less than 5 pixels
+        if (dist < 5 && onClick) {
+          onClick();
+        }
+        downPoint.current = null;
       }}
     />
   );
@@ -259,12 +277,28 @@ export const PackagingMesh: React.FC<{ config: PackagingState; overrideTexture?:
     }
   });
 
+  const downPoint = useRef<{ x: number, y: number } | null>(null);
+
   const bindInteraction = {
     onPointerOver: (e: any) => { e.stopPropagation(); setHover(true); },
     onPointerOut: (e: any) => { e.stopPropagation(); setHover(false); },
-    onClick: (e: any) => {
+    onPointerDown: (e: any) => {
       e.stopPropagation();
-      if (onClick) onClick();
+      downPoint.current = { x: e.screenX, y: e.screenY };
+    },
+    onPointerUp: (e: any) => {
+      e.stopPropagation();
+      if (!downPoint.current) return;
+
+      const dist = Math.sqrt(
+        Math.pow(e.screenX - downPoint.current.x, 2) +
+        Math.pow(e.screenY - downPoint.current.y, 2)
+      );
+
+      if (dist < 5 && onClick) {
+        onClick();
+      }
+      downPoint.current = null;
     }
   };
 
