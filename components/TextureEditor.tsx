@@ -367,8 +367,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
     // Define Clickable Regions based on Shape
     const getRegions = useCallback((w: number, h: number): Region[] => {
-        // 1. Mannequin / T-shirt (Official Template)
-        if (config.shape === 'mannequin') {
+        // 1. Mannequin / T-shirt (Proportional Sync with Scene.tsx)
+        if (config.shape === 'mannequin' || config.shape === 'custom') {
             return [
                 { id: 'front', label: '前片 (Front)', x: 0, y: 0, w: w * 0.35, h: h },
                 { id: 'back', label: '后片 (Back)', x: w * 0.35, y: 0, w: w * 0.35, h: h },
@@ -376,21 +376,6 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 { id: 'sleeve_r', label: '右袖 (Sleeve R)', x: w * 0.70, y: h * 0.34, w: w * 0.30, h: h * 0.33 },
                 { id: 'collar', label: '领口 (Collar)', x: w * 0.70, y: h * 0.67, w: w * 0.30, h: h * 0.33 },
             ];
-        }
-
-        // 1.5 Custom Model (Dynamic regions based on mesh parts)
-        if (config.shape === 'custom' && customPartsLayout.length > 0) {
-            return customPartsLayout.map(layout => {
-                const part = customParts[layout.partIndex];
-                return {
-                    id: part.name,
-                    label: part.name,
-                    x: layout.packedX,
-                    y: layout.packedY,
-                    w: layout.packedW,
-                    h: layout.packedH
-                };
-            });
         }
         // 2. Bottle / Can
         if (config.shape === 'bottle' || config.shape === 'can') {
@@ -630,76 +615,48 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                     return new Float32Array(boundarySegments);
                 };
 
-                // Traverse entire scene graph and group by name
-                const groupedMeshes = new Map<string, THREE.Mesh[]>();
+                // Traverse entire scene graph
                 gltf.scene.traverse((child) => {
                     if ((child as THREE.Mesh).isMesh) {
                         const mesh = child as THREE.Mesh;
-                        if (!mesh.name) return;
+                        const uvData = getUVs(mesh);
 
-                        // Clean name (remove Blender suffixes like .001)
-                        const cleanName = mesh.name.replace(/\.\d+$/, '');
-                        if (!groupedMeshes.has(cleanName)) groupedMeshes.set(cleanName, []);
-                        groupedMeshes.get(cleanName)!.push(mesh);
+                        // Filter: 至少需要3个三角形
+                        if (uvData && uvData.length >= 18) {
+                            // 计算UV面积
+                            let minU = 1, maxU = 0, minV = 1, maxV = 0;
+                            for (let i = 0; i < uvData.length; i += 2) {
+                                const u = uvData[i];
+                                const v = uvData[i + 1];
+                                if (Number.isFinite(u) && Number.isFinite(v)) {
+                                    minU = Math.min(minU, u);
+                                    maxU = Math.max(maxU, u);
+                                    minV = Math.min(minV, v);
+                                    maxV = Math.max(maxV, v);
+                                }
+                            }
+
+                            const uvArea = (maxU - minU) * (maxV - minV);
+                            const vertexCount = uvData.length / 2;
+                            // 只保留UV面积 > 0.01 或顶点数 > 1000的部件
+                            const isSignificant = uvArea > 0.01 || vertexCount > 1000;
+
+                            if (isSignificant) {
+                                allUvs.push(uvData);
+                                if (mesh.name) {
+                                    const bounds = getBoundaryEdges(uvData);
+                                    if (bounds.length > 0) {
+                                        parts.push({
+                                            name: mesh.name,
+                                            uvs: uvData,
+                                            boundaries: bounds
+                                        });
+                                    }
+                                }
+                            }
+                        }
                     }
                 });
-
-                // Process each group
-                for (const [name, meshes] of groupedMeshes.entries()) {
-                    // Skip technical meshes
-                    if (['贴图', 'Scene', 'PerspectiveCamera'].includes(name)) continue;
-
-                    // Merge all UVs for this group
-                    let totalUvLength = 0;
-                    meshes.forEach(m => {
-                        const uvs = getUVs(m);
-                        if (uvs) totalUvLength += uvs.length;
-                    });
-
-                    if (totalUvLength < 18) continue; // Skip tiny/invalid parts
-
-                    const mergedUv = new Float32Array(totalUvLength);
-                    let offset = 0;
-                    meshes.forEach(m => {
-                        const uvs = getUVs(m);
-                        if (uvs) {
-                            mergedUv.set(uvs, offset);
-                            offset += uvs.length;
-                        }
-                    });
-
-                    allUvs.push(mergedUv);
-
-                    // Extract islands if this is a major part (like '主体')
-                    // A major part often contains front and back, we want to split them
-                    const isMajor = ['主体', '袖子', '帽子', 'front', 'back', 'body'].some(k => name.toLowerCase().includes(k.toLowerCase()));
-
-                    if (isMajor) {
-                        // Use the previously implemented customUvIslands logic but locally for this mesh
-                        // to see if we should split it. For now, let's keep it simple: 
-                        // if islands are found, we treat each island as a sub-part.
-
-                        // Extract boundary for the WHOLE merged mesh
-                        const bounds = getBoundaryEdges(mergedUv);
-                        if (bounds.length > 0) {
-                            parts.push({
-                                name: name,
-                                uvs: mergedUv,
-                                boundaries: bounds
-                            });
-                        }
-                    } else {
-                        // Small parts (buttons, strings) keep as one
-                        const bounds = getBoundaryEdges(mergedUv);
-                        if (bounds.length > 0) {
-                            parts.push({
-                                name: name,
-                                uvs: mergedUv,
-                                boundaries: bounds
-                            });
-                        }
-                    }
-                }
 
                 // Auto-pack UV islands to avoid overlap
                 const layout = computeUVLayout(parts, canvasConfig.width, canvasConfig.height);
@@ -710,7 +667,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 setIsLoadingUVs(false);
             });
         }
-    }, [config.customModelUrl, config.shape, canvasConfig]);
+    }, [config.customModelUrl, config.shape]);
 
     useEffect(() => {
         if (initialImage && layers.length === 0) {
@@ -763,34 +720,6 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         setLayers(prev => prev.map(l => l.id === id ? { ...l, src: color } : l));
         setPreviewVersion(v => v + 1);
     }
-
-    // --- UV Boundary Helpers (for Custom Models/Hoodies) ---
-    const getUVPath = useCallback((r: Region) => {
-        // Find the custom part associated with this region
-        const part = customParts.find(p => p.name === r.id);
-        if (!part || !part.boundaries || part.boundaries.length === 0) return null;
-
-        const layout = customPartsLayout.find(l => customParts[l.partIndex].name === r.id);
-        if (!layout) return null;
-
-        // Normalize segments to 0-1 within their own bounding box
-        let path = "";
-        const uvs = part.boundaries;
-        // Optimization: Use a smaller coordinate space for SVG path to keep string short
-        const W = 1000, H = 1000;
-
-        for (let i = 0; i < uvs.length; i += 4) {
-            const u1 = (uvs[i] - layout.originalMinU) / (layout.originalMaxU - layout.originalMinU);
-            const v1 = (uvs[i + 1] - layout.originalMinV) / (layout.originalMaxV - layout.originalMinV);
-            const u2 = (uvs[i + 2] - layout.originalMinU) / (layout.originalMaxU - layout.originalMinU);
-            const v2 = (uvs[i + 3] - layout.originalMinV) / (layout.originalMaxV - layout.originalMinV);
-
-            // Using Move-Line for segments. While not perfectly joined, it renders correctly 
-            // and Path2D can handle it for clipping if they are coincident.
-            path += `M ${u1 * W} ${v1 * H} L ${u2 * W} ${v2 * H} `;
-        }
-        return { d: path, w: W, h: H };
-    }, [customParts, customPartsLayout]);
 
     // Math helpers...
     const screenToCanvas = (sx: number, sy: number) => {
@@ -855,10 +784,10 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             ctx.save();
 
             // 1. Set Shape Clipping
-            const pathData = REGION_SVG_PATHS[region.id] || (config.shape === 'custom' ? getUVPath(region) : null);
-            const isTshirtShape = config.shape === 'mannequin' || (config.shape === 'custom' && REGION_SVG_PATHS[region.id]);
+            const pathData = REGION_SVG_PATHS[region.id];
+            const isTshirtShape = config.shape === 'mannequin' || config.shape === 'custom';
 
-            if (pathData) {
+            if (pathData && isTshirtShape) {
                 const scaleX = region.w / pathData.w;
                 const scaleY = region.h / pathData.h;
                 const p = new Path2D(pathData.d);
@@ -1266,10 +1195,10 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
                                 // Get SVG Path and corresponding scale transform
                                 const getRegionPathInfo = (r: Region) => {
-                                    const pathData = REGION_SVG_PATHS[r.id] || (config.shape === 'custom' ? getUVPath(r) : null);
-                                    const isTshirtShape = config.shape === 'mannequin' || (config.shape === 'custom' && REGION_SVG_PATHS[r.id]);
+                                    const pathData = REGION_SVG_PATHS[r.id];
+                                    const isTshirtShape = config.shape === 'mannequin' || config.shape === 'custom';
 
-                                    if (pathData) {
+                                    if (pathData && isTshirtShape) {
                                         const scaleX = r.w / pathData.w;
                                         const scaleY = r.h / pathData.h;
                                         return {
