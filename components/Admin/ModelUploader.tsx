@@ -29,24 +29,7 @@ const ModelPreview = ({ url }: { url: string }) => {
 
 // ... (SVGPreview and rest of code)
 
-// ... INSIDE ModelUploader return ...
 
-{/* 3D Preview */ }
-<div className="bg-gray-100 rounded-xl overflow-hidden aspect-video border border-gray-200 relative">
-    {previewUrl ? (
-        <Suspense fallback={
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400 gap-2">
-                <Loader2 className="animate-spin" /> Loading...
-            </div>
-        }>
-            <ModelPreview url={previewUrl} />
-        </Suspense>
-    ) : (
-        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-            No Model Selected
-        </div>
-    )}
-</div>
 
 const SVGPreview = ({ paths }: { paths: Record<string, { d: string; w: number; h: number }> }) => {
     // Combine paths or show them?
