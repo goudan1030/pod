@@ -105,6 +105,46 @@ export const storageService = {
         if (error) console.error('Error deleting model:', error);
     },
 
+    async getModel(id: string): Promise<ModelItem | null> {
+        const { data, error } = await supabase
+            .from('models')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            console.error('Error fetching model:', error);
+            return null;
+        }
+
+        return {
+            id: data.id,
+            name: data.name,
+            file: data.file_url,
+            categoryId: data.category_id,
+            thumbnail: data.thumbnail_url || '',
+            config: data.config || {},
+            uploadedAt: new Date(data.created_at).getTime()
+        };
+    },
+
+    async updateModel(model: ModelItem): Promise<void> {
+        const dbRecord = {
+            name: model.name,
+            category_id: model.categoryId,
+            file_url: model.file,
+            thumbnail_url: model.thumbnail,
+            config: model.config
+        };
+
+        const { error } = await supabase
+            .from('models')
+            .update(dbRecord)
+            .eq('id', model.id);
+
+        if (error) console.error('Error updating model:', error);
+    },
+
     // --- Storage ---
     async uploadFile(file: File): Promise<string | null> {
         const fileExt = file.name.split('.').pop();

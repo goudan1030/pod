@@ -1,6 +1,7 @@
 import React from 'react';
 import { Category } from '../../types'; // Fix import source
 import { ChevronRight, Shirt, Hexagon, Crown, Square, Archive, Box, ShoppingBag, SprayCan, GlassWater, Package } from 'lucide-react';
+import logo from '../../assets/images/logo.svg';
 
 const ICON_MAP: Record<string, any> = {
     'archive': Archive,
@@ -25,7 +26,8 @@ const Sidebar: React.FC<SidebarProps> = ({ categories, selectedCategory, onSelec
     return (
         <div className="w-64 h-full bg-white border-r border-gray-100 flex flex-col py-6 overflow-y-auto">
             <div className="px-6 mb-6">
-                <h2 className="text-xl font-bold text-gray-900 tracking-tight">Category</h2>
+                <img src={logo} alt="Logo" className="h-8" />
+                {/* <h2 className="text-xl font-bold text-gray-900 tracking-tight">Category</h2> */}
             </div>
             <div className="space-y-1 px-3">
                 {categories.map((category) => {

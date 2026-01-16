@@ -15,6 +15,8 @@ export interface PackagingState {
   category?: string; // Model category: 'hat', 't-shirt', 'hoodie', etc.
   // Dynamic SVG paths extracted from the model (Key: regionId/meshName)
   dynamicSVGPaths?: Record<string, { d: string, w: number, h: number }>;
+  // List of mesh names to hide in the 3D scene
+  hiddenMeshes?: string[];
 }
 
 // --- Admin / Data Types ---

@@ -38,6 +38,10 @@ const router = createBrowserRouter([
             {
                 path: 'models/upload',
                 element: <ModelUploader /> // Make sure to import this
+            },
+            {
+                path: 'models/edit/:id',
+                element: <ModelUploader />
             }
         ]
     },

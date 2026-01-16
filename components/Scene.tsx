@@ -10,11 +10,20 @@ interface SceneProps {
   onModelClick?: () => void;
 }
 
-// Optimized CustomModel: Reuses material to avoid shader recompilation
+// Optimize CustomModel: Reuses material to avoid shader recompilation
 export const CustomModel: React.FC<{ url: string; config: PackagingState; materialProps: any; onHover: (v: boolean) => void; onClick?: () => void; customParts?: any }> = ({ url, config, materialProps, onHover, onClick, customParts }) => {
   const { scene } = useGLTF(url);
   const clone = useMemo(() => {
     const c = scene.clone();
+
+    // Apply hidden meshes logic immediately on clone
+    if (config.hiddenMeshes && config.hiddenMeshes.length > 0) {
+      c.traverse((child) => {
+        if (child.name && config.hiddenMeshes?.includes(child.name)) {
+          child.visible = false;
+        }
+      });
+    }
 
     // 强制执行深度更新以确保 Box3 计算精确
     c.updateMatrixWorld(true);
