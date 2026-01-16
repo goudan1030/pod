@@ -20,15 +20,17 @@ const ModelList: React.FC<ModelListProps> = ({ models, onSelectModel }) => {
                     >
                         {/* 3D Preview Area */}
                         <div className="aspect-[4/3] bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden">
-                            <Suspense fallback={
-                                <div className="w-full h-full flex items-center justify-center">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
+                            {model.thumbnail ? (
+                                <img
+                                    src={model.thumbnail}
+                                    alt={model.name}
+                                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                                    <Box size={32} />
                                 </div>
-                            }>
-                                {model.config.customModelUrl && (
-                                    <ModelPreview modelUrl={model.config.customModelUrl} />
-                                )}
-                            </Suspense>
+                            )}
 
                             {/* 3D Badge */}
                             <div className="absolute top-3 left-3 bg-white/90 backdrop-blur border border-gray-200 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-1">
