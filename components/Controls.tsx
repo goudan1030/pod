@@ -167,85 +167,11 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
       </div>
 
       <div className="p-5 space-y-8">
-
-        {/* Shape Selection */}
-        <section>
-          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-            1. 选择模型 (Model)
-          </label>
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            {SHAPES.map((shape) => (
-              <button
-                key={shape.id}
-                onClick={() => onChange({ shape: shape.id })}
-                className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all shadow-sm ${config.shape === shape.id
-                  ? 'bg-brand-50 border-brand-500 text-brand-700 font-medium'
-                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
-              >
-                <div className="mb-2 text-current opacity-80">{shape.icon}</div>
-                <span className="text-xs">{shape.label}</span>
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={() => modelInputRef.current?.click()}
-            className={`w-full py-2.5 border border-dashed rounded-lg flex items-center justify-center gap-2 transition-all text-xs font-medium mb-4 ${config.shape === 'custom'
-              ? 'border-brand-500 bg-brand-50 text-brand-700'
-              : 'border-gray-300 text-gray-500 hover:border-brand-400 hover:text-brand-600 hover:bg-brand-50/50'
-              }`}
-          >
-            <Upload size={16} />
-            {config.customModelUrl ? '上传新模型 (GLB)' : '上传自定义模型 (GLB)'}
-          </button>
-          <input
-            type="file"
-            ref={modelInputRef}
-            onChange={handleModelUpload}
-            accept=".glb,.gltf"
-            className="hidden"
-          />
-
-          {/* Saved Models Library */}
-          {savedModels.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-gray-400">
-                <Database size={10} />
-                我的模型库
-              </div>
-              <div className="max-h-32 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
-                {savedModels.map(model => (
-                  <div
-                    key={model.id}
-                    onClick={() => handleSelectSavedModel(model.id)}
-                    className={`group flex items-center justify-between p-2 rounded border cursor-pointer transition-all ${config.shape === 'custom' && config.customModelUrl?.includes('blob') // Simple heuristic, ideally compare IDs
-                      ? 'border-brand-200 bg-brand-50'
-                      : 'border-gray-100 hover:bg-gray-50'
-                      }`}
-                  >
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <BoxSelect size={14} className="text-gray-400 shrink-0" />
-                      <span className="text-xs truncate text-gray-700 max-w-[140px]" title={model.name}>{model.name}</span>
-                    </div>
-                    <button
-                      onClick={(e) => handleDeleteModel(e, model.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-opacity"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
-
         {/* Material Properties */}
         <section>
           <label className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
             <Palette size={14} />
-            2. 材质与图案 (Design)
+            1. 材质与图案 (Design)
           </label>
 
           {/* Color & Base Material */}
@@ -336,7 +262,7 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
         </div>
 
       </div>
-    </div>
+    </div >
   );
 };
 

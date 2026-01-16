@@ -6,9 +6,12 @@ import { Center, OrbitControls, Environment } from '@react-three/drei';
 import { PackagingMesh } from './Scene';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { extractSVGPathFromMesh } from '../utils/uvPipeline';
 
-// --- Constants for SVG Shapes ---
-const REGION_SVG_PATHS: Record<string, { d: string, w: number, h: number }> = {
+// --- Constants for SVG Shapes (Category-Specific) ---
+
+// T-Shirt / Hoodie SVG Paths
+const TSHIRT_SVG_PATHS: Record<string, { d: string, w: number, h: number }> = {
     front: {
         d: "M0,185Q154,430.5,48.5,527L48.5,1502.5L1017,1502.5L1017,527Q902.5,436,1065,185Q850,58,754,0Q717,234.5,533,234.5Q351,241.5,311,0L0,185Z",
         w: 1065,
@@ -35,6 +38,52 @@ const REGION_SVG_PATHS: Record<string, { d: string, w: number, h: number }> = {
         h: 170
     }
 };
+
+// Hat SVG Paths (5 regions based on your API data)
+const HAT_SVG_PATHS: Record<string, { d: string, w: number, h: number }> = {
+    panel_1: {
+        // First hat panel (arc shape)
+        d: "M75,0 Q150,20 225,0 L200,320 L100,320 Z",
+        w: 300,
+        h: 320
+    },
+    panel_2: {
+        // Second hat panel (arc shape)
+        d: "M75,0 Q150,20 225,0 L200,320 L100,320 Z",
+        w: 300,
+        h: 320
+    },
+    panel_3: {
+        // Third hat panel (arc shape)
+        d: "M75,0 Q150,20 225,0 L200,320 L100,320 Z",
+        w: 300,
+        h: 320
+    },
+    brim_top: {
+        // Hat brim top (curved arc)
+        d: "M0,100 Q225,50 450,100 L450,200 Q225,150 0,200 Z",
+        w: 450,
+        h: 200
+    },
+    brim_bottom: {
+        // Hat brim bottom (curved arc, slightly different)
+        d: "M50,80 Q225,40 400,80 L400,160 Q225,120 50,160 Z",
+        w: 450,
+        h: 180
+    }
+};
+
+// Category to SVG Path mapping
+const CATEGORY_SVG_PATHS: Record<string, Record<string, { d: string, w: number, h: number }>> = {
+    'hat': HAT_SVG_PATHS,
+    't-shirt': TSHIRT_SVG_PATHS,
+    'hoodie': TSHIRT_SVG_PATHS, // Reuse t-shirt paths for hoodie
+    // Add more categories as needed
+};
+
+// Fallback for T-shirt (mannequin mode)
+const REGION_SVG_PATHS = TSHIRT_SVG_PATHS;
+
 
 // --- Types ---
 
@@ -229,6 +278,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
     const [customParts, setCustomParts] = useState<{ name: string; uvs: Float32Array; boundaries: Float32Array }[]>([]);
     // Store UV layout mapping (for auto-packing)
     const [customPartsLayout, setCustomPartsLayout] = useState<UVLayout[]>([]);
+    // Store dynamic SVG paths for custom models
+    const [dynamicPaths, setDynamicPaths] = useState<Record<string, { d: string, w: number, h: number }>>({});
     const [isLoadingUVs, setIsLoadingUVs] = useState(false);
     const [previewVersion, setPreviewVersion] = useState(0);
     const [cursorStyle, setCursorStyle] = useState('default');
@@ -367,8 +418,28 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
     // Define Clickable Regions based on Shape
     const getRegions = useCallback((w: number, h: number): Region[] => {
-        // 1. Mannequin / T-shirt (Proportional Sync with Scene.tsx)
-        if (config.shape === 'mannequin' || config.shape === 'custom') {
+        // Get category from config, fallback to auto-detection
+        const category = config.category || (config.shape === 'mannequin' ? 't-shirt' : 'custom');
+
+        // 1. Hat (5 panels)
+        if (category === 'hat') {
+            const panelWidth = w * 0.3;  // Each panel takes 30% width
+            const panelHeight = h * 0.6; // Panels take 60% height
+            const brimWidth = w * 0.9;   // Brim spans 90% width
+            const brimHeight = h * 0.2;  // Brim takes 20% height
+            const spacing = 10;
+
+            return [
+                { id: 'panel_1', label: '主体-1 (Panel 1)', x: spacing, y: spacing, w: panelWidth, h: panelHeight },
+                { id: 'panel_2', label: '主体-2 (Panel 2)', x: panelWidth + spacing * 2, y: spacing, w: panelWidth, h: panelHeight },
+                { id: 'panel_3', label: '主体-3 (Panel 3)', x: panelWidth * 2 + spacing * 3, y: spacing, w: panelWidth, h: panelHeight },
+                { id: 'brim_top', label: '帽舌面 (Brim Top)', x: spacing, y: panelHeight + spacing * 2, w: brimWidth, h: brimHeight },
+                { id: 'brim_bottom', label: '帽舌底 (Brim Bottom)', x: spacing, y: panelHeight + brimHeight + spacing * 3, w: brimWidth, h: brimHeight },
+            ];
+        }
+
+        // 2. Mannequin / T-shirt / Hoodie (Proportional Sync with Scene.tsx)
+        if (category === 't-shirt' || category === 'hoodie' || config.shape === 'mannequin') {
             return [
                 { id: 'front', label: '前片 (Front)', x: 0, y: 0, w: w * 0.35, h: h },
                 { id: 'back', label: '后片 (Back)', x: w * 0.35, y: 0, w: w * 0.35, h: h },
@@ -377,21 +448,22 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 { id: 'collar', label: '领口 (Collar)', x: w * 0.70, y: h * 0.67, w: w * 0.30, h: h * 0.33 },
             ];
         }
-        // 2. Bottle / Can
+
+        // 3. Bottle / Can
         if (config.shape === 'bottle' || config.shape === 'can') {
             const spacing = 20;
             return [{ id: 'label_main', label: 'Wrap Label', x: spacing, y: spacing, w: w - spacing * 2, h: h - spacing * 2 }];
         }
-        // 3. Pouch
+        // 4. Pouch
         if (config.shape === 'pouch') {
             const spacing = 30;
             const halfW = (w - spacing * 3) / 2;
             return [
                 { id: 'front', label: 'Front', x: spacing, y: spacing, w: halfW, h: h - spacing * 2 },
-                { id: 'back', label: 'Back', x: halfW + spacing * 2, y: spacing, w: halfW, h: h - spacing * 2 },
+                { id: ' back', label: 'Back', x: halfW + spacing * 2, y: spacing, w: halfW, h: h - spacing * 2 },
             ];
         }
-        // 4. Boxes
+        // 5. Boxes
         if (['box', 'mailer', 'tuck'].includes(config.shape)) {
             const spacing = 15;
             const side = (w - spacing * 5) / 4;
@@ -404,8 +476,77 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 { id: 'back', label: 'Back', x: side * 3 + spacing * 4, y: side + spacing * 2, w: side, h: side },
             ];
         }
+
+        // 6. Custom Model (Dynamic Regions from App / Config)
+        if (config.dynamicSVGPaths && Object.keys(config.dynamicSVGPaths).length > 0) {
+            const regions: Region[] = [];
+            const pathEntries = Object.entries(config.dynamicSVGPaths);
+
+            // Layout Strategy: Flow Layout
+            const PADDING = 40;
+            const TEXT_HEIGHT = 30; // Space for label
+            let currentX = PADDING;
+            let currentY = PADDING;
+            let rowHeight = 0;
+
+            pathEntries.forEach(([id, pathData]) => {
+                // Map UV space (0-1) to Pixel space.
+                const UV_SCALE = 1000;
+
+                // Calculate pixel dimensions
+                let segW = pathData.w * UV_SCALE;
+                let segH = pathData.h * UV_SCALE;
+
+                // Clamp max width to avoid massive pieces
+                const MAX_W = w - PADDING * 2;
+                if (segW > MAX_W) {
+                    const ratio = MAX_W / segW;
+                    segW = MAX_W;
+                    segH = segH * ratio;
+                }
+
+                // Check for new row
+                if (currentX + segW + PADDING > w) { // 'w' is outer scope var
+                    currentX = PADDING;
+                    currentY += rowHeight + PADDING + TEXT_HEIGHT;
+                    rowHeight = 0;
+                }
+
+                regions.push({
+                    id: id,
+                    label: id.replace(/_/g, ' '),
+                    x: currentX,
+                    y: currentY,
+                    w: segW,
+                    h: segH
+                });
+
+                // Update row metrics
+                rowHeight = Math.max(rowHeight, segH);
+                currentX += segW + PADDING;
+            });
+
+            return regions;
+        }
+
+        // 7. Custom Model (Dynamic Regions via internal calculation - Fallback)
+        if (config.shape === 'custom') {
+            return customPartsLayout.map(layout => {
+                const part = customParts[layout.partIndex];
+                const name = part ? part.name : `Part ${layout.partIndex}`;
+                return {
+                    id: name, // Using Mesh Name as ID
+                    label: name,
+                    x: layout.packedX,
+                    y: layout.packedY,
+                    w: layout.packedW,
+                    h: layout.packedH
+                };
+            });
+        }
+
         return [];
-    }, [config.shape, customUvIslands, customParts, customPartsLayout]);
+    }, [config.shape, config.category, config.dynamicSVGPaths, customUvIslands, customParts, customPartsLayout]);
 
     const regions = useMemo(() => getRegions(canvasConfig.width, canvasConfig.height), [getRegions, canvasConfig]);
 
@@ -430,6 +571,18 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             setTimeout(fitToScreen, 10);
         }
     }, [isOpen, fitToScreen]);
+
+    // Initialize all regions with default white background
+    useEffect(() => {
+        if (regions.length > 0 && Object.keys(faceColors).length === 0) {
+            const initialColors: Record<string, string> = {};
+            regions.forEach(region => {
+                initialColors[region.id] = '#ffffff'; // Default white background
+            });
+            setFaceColors(initialColors);
+            setPreviewVersion(v => v + 1); // Trigger re-render
+        }
+    }, [regions, faceColors]);
 
     // Keyboard Shortcuts
     useEffect(() => {
@@ -544,7 +697,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             const loader = new GLTFLoader();
             loader.load(config.customModelUrl, (gltf) => {
                 const allUvs: Float32Array[] = [];
-                const parts: { name: string; uvs: Float32Array; boundaries: Float32Array }[] = [];
+                const parts: { name: string; uvs: Float32Array; boundaries: Float32Array; svgData?: any }[] = [];
+                const newDynamicPaths: Record<string, { d: string, w: number, h: number }> = {};
 
                 // Helper to extract UVs
                 const getUVs = (mesh: THREE.Mesh) => {
@@ -644,12 +798,30 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                             if (isSignificant) {
                                 allUvs.push(uvData);
                                 if (mesh.name) {
-                                    const bounds = getBoundaryEdges(uvData);
-                                    if (bounds.length > 0) {
+                                    // 1. Try to extract precise SVG Path
+                                    const svgInfo = extractSVGPathFromMesh(mesh);
+                                    let bounds: Float32Array | null = null;
+
+                                    if (svgInfo) {
+                                        // Use the extracted dimensions for layout calculation later
+                                        // Store valid path
+                                        newDynamicPaths[mesh.name] = {
+                                            d: svgInfo.d,
+                                            w: svgInfo.width, // UV space width
+                                            h: svgInfo.height // UV space height 
+                                        };
+                                        // We still need boundaries for... wait, we actually don't need 'getBoundaryEdges' anymore 
+                                        // if we have exact SVG paths. But let's keep it for compatibility or fallbacks.
+                                    }
+
+                                    // 2. Fallback / Legacy boundary check
+                                    const boundsArr = getBoundaryEdges(uvData);
+                                    if (boundsArr.length > 0 || svgInfo) {
                                         parts.push({
                                             name: mesh.name,
                                             uvs: uvData,
-                                            boundaries: bounds
+                                            boundaries: boundsArr, // Keep for now
+                                            svgData: svgInfo
                                         });
                                     }
                                 }
@@ -659,11 +831,24 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 });
 
                 // Auto-pack UV islands to avoid overlap
-                const layout = computeUVLayout(parts, canvasConfig.width, canvasConfig.height);
+                // We need to pass the "size" of each part to the packer. 
+                // If we have svgData, use its width/height. If not, calculate from min/max UV.
+
+                // Enhanced ComputeUVLayout Wrapper
+                const enhancedLayouts = computeUVLayout(parts.map(p => {
+                    if (p.svgData) {
+                        // Mock the structure expected by computeUVLayout (it calculates bounds internally from uvs)
+                        // Actually computeUVLayout takes { uvs } and calculates bounds itself. 
+                        // That is fine. UVs represent the same shape as SVG.
+                        return p;
+                    }
+                    return p;
+                }), canvasConfig.width, canvasConfig.height);
 
                 setCustomUVs(allUvs);
                 setCustomParts(parts);
-                setCustomPartsLayout(layout);
+                setCustomPartsLayout(enhancedLayouts);
+                setDynamicPaths(newDynamicPaths);
                 setIsLoadingUVs(false);
             });
         }
@@ -779,27 +964,43 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        // Get category-specific SVG paths
+        const category = config.category || 'custom';
+        const categoryPaths = CATEGORY_SVG_PATHS[category] || REGION_SVG_PATHS;
+
         // Render each region independently
         regions.forEach(region => {
             ctx.save();
 
             // 1. Set Shape Clipping
-            const pathData = REGION_SVG_PATHS[region.id];
-            const isTshirtShape = config.shape === 'mannequin' || config.shape === 'custom';
+            // Prioritize paths from config (loaded in App.tsx)
+            const configDynamicPath = config.dynamicSVGPaths?.[region.id];
+            const localDynamicPath = dynamicPaths[region.id];
+            const staticPath = categoryPaths[region.id];
+            const isTshirtShape = config.shape === 'mannequin' || category === 't-shirt' || category === 'hoodie';
 
-            if (pathData && isTshirtShape) {
-                const scaleX = region.w / pathData.w;
-                const scaleY = region.h / pathData.h;
-                const p = new Path2D(pathData.d);
+            let pathToUse = null;
+            if (configDynamicPath) {
+                pathToUse = configDynamicPath;
+            } else if (config.shape === 'custom' && localDynamicPath) {
+                pathToUse = localDynamicPath;
+            } else if (staticPath) {
+                pathToUse = staticPath;
+            }
+
+            if (pathToUse) {
+                const scaleX = region.w / pathToUse.w;
+                const scaleY = region.h / pathToUse.h;
+                const p = new Path2D(pathToUse.d);
                 ctx.translate(region.x, region.y);
                 ctx.scale(scaleX, scaleY);
                 ctx.clip(p);
                 // Fill background in normalized space
                 ctx.fillStyle = faceColors[region.id] || config.color;
-                ctx.fillRect(0, 0, pathData.w, pathData.h);
+                ctx.fillRect(0, 0, pathToUse.w, pathToUse.h);
             } else {
                 ctx.beginPath();
-                if (isTshirtShape) {
+                if (isTshirtShape || category === 'hat') {
                     const radius = Math.min(region.w, region.h) * 0.1;
                     ctx.roundRect(region.x, region.y, region.w, region.h, radius);
                 } else {
@@ -818,7 +1019,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                     // Critical: if we used pathData above, the matrix is currently scaled/translated.
                     // We need to either work in that space or reset to global.
                     // To keep layer positioning intuitive (global canvas coords), we reset.
-                    if (pathData && isTshirtShape) {
+                    if (pathToUse) {
                         ctx.setTransform(1, 0, 0, 1, 0, 0);
                     }
 
@@ -858,7 +1059,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             }
         });
 
-    }, [layers, config.color, config.shape, regions, faceColors, canvasConfig]);
+    }, [layers, config.color, config.shape, config.category, regions, faceColors, canvasConfig]);
 
     // 2. Render UI (Overlays, Guides, Gizmos - NOT on the model)
     const renderUI = useCallback(() => {
@@ -1195,10 +1396,37 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
                                 // Get SVG Path and corresponding scale transform
                                 const getRegionPathInfo = (r: Region) => {
-                                    const pathData = REGION_SVG_PATHS[r.id];
-                                    const isTshirtShape = config.shape === 'mannequin' || config.shape === 'custom';
+                                    // Get category-specific SVG paths
+                                    const category = config.category || 'custom';
+                                    const categoryPaths = CATEGORY_SVG_PATHS[category] || REGION_SVG_PATHS;
 
-                                    if (pathData && isTshirtShape) {
+                                    // Priority 0: Pre-calculated dynamic paths (from App)
+                                    if (config.dynamicSVGPaths && config.dynamicSVGPaths[r.id]) {
+                                        const dPath = config.dynamicSVGPaths[r.id];
+                                        const scaleX = r.w / dPath.w;
+                                        const scaleY = r.h / dPath.h;
+                                        return {
+                                            d: dPath.d,
+                                            transform: `translate(${r.x}, ${r.y}) scale(${scaleX}, ${scaleY})`
+                                        };
+                                    }
+
+                                    // Priority 1: Dynamic Path (from Custom Model internal calculation)
+                                    const dynamicPath = dynamicPaths[r.id];
+                                    if (dynamicPath && config.shape === 'custom') {
+                                        // dynamicPath.w/h are in UV space (0-1 usually or small floats)
+                                        // r.w/h are in Canvas Pixels (e.g. 300px)
+                                        const scaleX = r.w / dynamicPath.w;
+                                        const scaleY = r.h / dynamicPath.h;
+                                        return {
+                                            d: dynamicPath.d,
+                                            transform: `translate(${r.x}, ${r.y}) scale(${scaleX}, ${scaleY})`
+                                        };
+                                    }
+
+                                    // Priority 2: Category-specific Template (e.g., hat, t-shirt)
+                                    const pathData = categoryPaths[r.id];
+                                    if (pathData) {
                                         const scaleX = r.w / pathData.w;
                                         const scaleY = r.h / pathData.h;
                                         return {
@@ -1206,6 +1434,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                             transform: `translate(${r.x}, ${r.y}) scale(${scaleX}, ${scaleY})`
                                         };
                                     }
+
                                     // Default rectangle
                                     return {
                                         d: `M 0 0 L ${r.w} 0 L ${r.w} ${r.h} L 0 ${r.h} Z`,
