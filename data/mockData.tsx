@@ -17,7 +17,6 @@ const DEFAULT_CATEGORIES_DATA: Partial<Category>[] = [
 
 const DEFAULT_CONFIG: PackagingState = {
     shape: 'mannequin',
-    customModelUrl: null,
     color: '#ffffff',
     textureUrl: null,
     roughness: 0.5,

@@ -3,20 +3,20 @@ import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { OrbitControls, useGLTF, ContactShadows, Center, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { PackagingState } from '../types';
-import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Loader2 } from 'lucide-react';
 
 interface SceneProps {
   config: PackagingState;
   onModelClick?: () => void;
 }
 
-// Optimize CustomModel: Reuses material to avoid shader recompilation
-export const CustomModel: React.FC<{ url: string; config: PackagingState; materialProps: any; onHover: (v: boolean) => void; onClick?: () => void; customParts?: any }> = ({ url, config, materialProps, onHover, onClick, customParts }) => {
+// GLB Model Loader Component
+const GLBModel: React.FC<{ url: string; config: PackagingState; materialProps: any; onHover: (v: boolean) => void; onClick?: () => void }> = ({ url, config, materialProps, onHover, onClick }) => {
   const { scene } = useGLTF(url);
   const clone = useMemo(() => {
     const c = scene.clone();
 
-    // Apply hidden meshes logic immediately on clone
+    // Apply hidden meshes logic
     if (config.hiddenMeshes && config.hiddenMeshes.length > 0) {
       c.traverse((child) => {
         if (child.name && config.hiddenMeshes?.includes(child.name)) {
@@ -25,146 +25,61 @@ export const CustomModel: React.FC<{ url: string; config: PackagingState; materi
       });
     }
 
-    // 强制执行深度更新以确保 Box3 计算精确
+    // Calculate bounding box and scale model
     c.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(c);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
 
     const maxDim = Math.max(size.x, size.y, size.z);
-    // 设定目标标准尺寸为 1.5 单位 (人台标准尺寸约为 1.8-2.0)
-    const targetSize = 1.5;
+    const targetSize = 1.0; // Standard size for GLB models
     const scale = targetSize / (maxDim || 1);
 
     c.scale.setScalar(scale);
-    // 重置位置，使模型中心位于场景中心 (0, 0, 0)
     c.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
 
     return c;
-  }, [scene]);
+  }, [scene, config.hiddenMeshes]);
 
-  // 为custom模型创建部件纹理映射
-  const partTextures = useMemo(() => {
-    if (!materialProps.map || !customParts) return null;
-
-    const createPartTexture = (uOff: number, vOff: number, uRep: number, vRep: number) => {
-      const t = materialProps.map.clone();
-      t.matrixAutoUpdate = false;
-      t.colorSpace = THREE.SRGBColorSpace;
-      t.flipY = true;
-      t.repeat.set(uRep, vRep);
-      t.offset.set(uOff, vOff);
-      t.wrapS = THREE.ClampToEdgeWrapping;
-      t.wrapT = THREE.ClampToEdgeWrapping;
-      t.updateMatrix();
-      return t;
-    };
-
-    // Standard 35/35/30 Mapping Proportions (Synced with TextureEditor)
-    const accW = 0.30; // Accessories width
-    return {
-      front: createPartTexture(0, 0, 0.35, 1),
-      back: createPartTexture(0.35, 0, 0.35, 1),
-      sleeve_left: createPartTexture(0.70, 0.66, accW, 0.34),
-      sleeve_right: createPartTexture(0.70, 0.33, accW, 0.33),
-      collar: createPartTexture(0.70, 0, accW, 0.33)
-    };
-  }, [materialProps.map, customParts]);
-
-  // Apply material to meshes with part-specific textures
+  // Apply material to meshes
   useEffect(() => {
     clone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        const meshName = mesh.name.toLowerCase();
+        const meshName = mesh.name;
 
-        // 创建新材质
-        const mat = new THREE.MeshPhysicalMaterial({
-          color: materialProps.color,
-          roughness: materialProps.roughness,
-          metalness: materialProps.metalness,
-          sheen: materialProps.sheen,
-          sheenColor: materialProps.sheenColor || new THREE.Color('#ffffff'),
-          clearcoat: materialProps.clearcoat,
-          side: materialProps.side,
-          emissive: materialProps.emissive,
-          emissiveIntensity: materialProps.emissiveIntensity,
-        });
+        // Apply texture to "贴图" mesh
+        if (meshName === '贴图' || meshName.includes('贴图')) {
+          const mat = new THREE.MeshPhysicalMaterial({
+            color: materialProps.color,
+            roughness: materialProps.roughness,
+            metalness: materialProps.metalness,
+            sheen: materialProps.sheen,
+            sheenColor: materialProps.sheenColor || new THREE.Color('#ffffff'),
+            clearcoat: materialProps.clearcoat,
+            side: materialProps.side,
+            emissive: materialProps.emissive,
+            emissiveIntensity: materialProps.emissiveIntensity,
+            map: materialProps.map,
+            transparent: true,
+            alphaTest: 0.05,
+            depthWrite: true
+          });
 
-        // Check for specific part keywords using a more robust approach
-        const fullSearchName = (mesh.name + " " + (mesh.parent?.name || "")).toLowerCase();
-        const isPart = (keywords: string[]) => keywords.some(k => fullSearchName.includes(k.toLowerCase()));
+          if (mat.map) {
+            mat.map.flipY = true;
+            mat.map.needsUpdate = true;
+          }
 
-        // Use bounding box to help with L/R detection if name is ambiguous
-        const meshBox = new THREE.Box3().setFromObject(mesh);
-        const meshCenter = meshBox.getCenter(new THREE.Vector3());
-
-        // Standard L/R detection using keywords + spatial fallback (X+ is Left, X- is Right)
-        const isLeft = isPart(['left', 'sleeve_l', '左', '_l', '.l']) || (!isPart(['right', '右', '_r', '.r']) && meshCenter.x > 0.1);
-        const isRight = isPart(['right', 'sleeve_r', '右', '_r', '.r']) || (!isPart(['left', '左', '_l', '.l']) && meshCenter.x < -0.1);
-
-        // Determine which mapped texture to use
-        if (partTextures) {
-          // Priority 1: Labels & Decorations
-          if (isPart(['贴图', 'sticker', 'decal', 'label', 'logo'])) {
-            mat.map = materialProps.map;
-            mat.transparent = true;
-          }
-          // Priority 2: Collar (Check before sleeve to avoid crosstalk)
-          else if (isPart(['领', 'collar', 'neck', 'neckband', 'rib'])) {
-            mat.map = partTextures.collar;
-          }
-          // Priority 3: Main Body
-          else if ((isPart(['主体', 'body', 'front', '正面', '前片']) || isPart(['main'])) && !isPart(['back', '后', '背面', '后片'])) {
-            mat.map = partTextures.front;
-          } else if (isPart(['back', '后片', '背面', '后部'])) {
-            mat.map = partTextures.back;
-          }
-          // Priority 4: Sleeves
-          else if (isPart(['sleeve', '袖子', 'arm', '袖', 'inside', 'inner']) || isPart(['cuff', '袖口'])) {
-            if (isRight) {
-              mat.map = partTextures.sleeve_right;
-            } else if (isLeft) {
-              mat.map = partTextures.sleeve_left;
-            } else {
-              // Spatial fallback for generic names like "Sleeve_Inner"
-              mat.map = meshCenter.x > 0 ? partTextures.sleeve_left : partTextures.sleeve_right;
-            }
-          }
-          // Priority 5: Utility
-          else if (isPart(['缝纫', '线', 'stitch', 'thread'])) {
-            mat.map = null;
-          }
-          // Fallback
-          else {
-            if (fullSearchName.includes('front')) mat.map = partTextures.front;
-            else if (fullSearchName.includes('back')) mat.map = partTextures.back;
-            else if (fullSearchName.includes('sleeve')) {
-              mat.map = meshCenter.x > 0 ? partTextures.sleeve_left : partTextures.sleeve_right;
-            } else {
-              mat.map = materialProps.map;
-            }
-          }
-        } else {
-          mat.map = materialProps.map;
+          mesh.material = mat;
+          mesh.visible = true;
         }
 
-        // Check if this part should be transparent (decals/stickers) or opaque (main fabric)
-        const isDecal = isPart(['贴图', 'sticker', 'decal', 'label', 'logo']);
-
-        // Fix for "Snowflake" flickering:
-        // Main parts should NOT be transparent unless strictly needed, to ensure DepthWrite works correctly.
-        mat.transparent = isDecal;
-        mat.alphaTest = isDecal ? 0.05 : 0; // Use alphaTest for decals to help with sorting
-        mat.depthWrite = true; // Always write to depth buffer to prevent Z-fighting snowflakes
-        mat.side = THREE.DoubleSide; // Keep DoubleSide for single-walled meshes
-
-        mesh.material = mat;
         mesh.castShadow = true;
         mesh.receiveShadow = true;
       }
     });
-  }, [clone, materialProps, partTextures]);
+  }, [clone, materialProps]);
 
   // Click vs Drag Detection
   const downPoint = useRef<{ x: number, y: number } | null>(null);
@@ -188,7 +103,6 @@ export const CustomModel: React.FC<{ url: string; config: PackagingState; materi
           Math.pow(e.screenY - downPoint.current.y, 2)
         );
 
-        // Only trigger click if movement is less than 5 pixels
         if (dist < 5 && onClick) {
           onClick();
         }
@@ -233,7 +147,9 @@ export const PackagingMesh: React.FC<{ config: PackagingState; overrideTexture?:
 
   // Texture Transformation Logic
   useEffect(() => {
-    if (activeTexture && config.shape !== 'mannequin') {
+    // Only apply transforms if it's NOT an override texture (CanvasTexture)
+    // CanvasTexture already has transforms applied during 2D drawing
+    if (activeTexture && config.shape !== 'mannequin' && overrideTexture === undefined) {
       activeTexture.colorSpace = THREE.SRGBColorSpace;
       activeTexture.matrixAutoUpdate = false;
       activeTexture.center.set(0.5, 0.5);
@@ -244,7 +160,7 @@ export const PackagingMesh: React.FC<{ config: PackagingState; overrideTexture?:
       activeTexture.updateMatrix();
       activeTexture.needsUpdate = true;
     }
-  }, [activeTexture, config.textureOffset, config.textureRepeat, config.textureRotation, config.shape]);
+  }, [activeTexture, config.textureOffset, config.textureRepeat, config.textureRotation, config.shape, overrideTexture]);
 
   // Mannequin specific texture splitting (Memoized)
   const mannequinParts = useMemo(() => {
@@ -313,12 +229,12 @@ export const PackagingMesh: React.FC<{ config: PackagingState; overrideTexture?:
 
   // Custom模型的纹理分割(类似mannequin)
   const customParts = useMemo(() => {
-    if (config.shape !== 'custom' || !activeTexture) return null;
-    return {}; // 标记启用分割
+    return null; // 禁用分割，直接使用原始UV
   }, [activeTexture, config.shape]);
 
-  if (config.shape === 'custom' && config.customModelUrl) {
-    return <CustomModel url={config.customModelUrl} config={config} materialProps={baseMaterialProps} onHover={setHover} onClick={onClick} customParts={customParts} />;
+  // If modelFileUrl is provided, load GLB model
+  if (config.modelFileUrl) {
+    return <GLBModel url={config.modelFileUrl} config={config} materialProps={baseMaterialProps} onHover={setHover} onClick={onClick} />;
   }
 
   const renderStandardMesh = (geometry: React.ReactNode, position: [number, number, number] = [0, 0, 0]) => (
@@ -420,7 +336,7 @@ export const PackagingMesh: React.FC<{ config: PackagingState; overrideTexture?:
   }
 };
 
-const defaultCameraDistance = 9;
+const defaultCameraDistance = 80; // Increased to 80 for optimal viewing distance
 
 // Camera Controls Component to access OrbitControls
 const CameraControls: React.FC<{
@@ -474,8 +390,29 @@ const CameraControls: React.FC<{
 
 const Scene: React.FC<SceneProps> = ({ config, onModelClick }) => {
   const controlsRef = useRef<any>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const cameraRef = useRef<THREE.PerspectiveCamera>(null);
+  const [zoom, setZoom] = useState(1.0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingStage, setLoadingStage] = useState<'building' | 'materials'>('building');
+
+  // Simulate loading stages
+  useEffect(() => {
+    setIsLoading(true);
+    setLoadingStage('building');
+
+    const timer1 = setTimeout(() => {
+      setLoadingStage('materials');
+    }, 800);
+
+    const timer2 = setTimeout(() => {
+      setIsLoading(false);
+    }, 1600);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+    };
+  }, [config.modelFileUrl, config.shape]);
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Initialize zoom on mount - use default 100%
@@ -545,7 +482,20 @@ const Scene: React.FC<SceneProps> = ({ config, onModelClick }) => {
   };
 
   return (
-    <div className="w-full h-full relative">
+    <div className="relative w-full h-full bg-gray-50">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-900/20 backdrop-blur-md z-50">
+          <div className="bg-white rounded-2xl shadow-xl px-8 py-6 flex items-center gap-4 border border-gray-100">
+            <Loader2 className="animate-spin text-brand-600" size={24} />
+            <span className="text-lg font-medium text-gray-700">
+              {loadingStage === 'building' ? '构建模型' : '准备材质'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* 3D Canvas */}
       <Canvas
         shadows
         dpr={[1, 2]}
@@ -559,7 +509,7 @@ const Scene: React.FC<SceneProps> = ({ config, onModelClick }) => {
         camera={{ fov: 35, position: [0, 0, defaultCameraDistance], near: 0.1, far: 1000 }}
       >
         <React.Suspense fallback={null}>
-          <color attach="background" args={['#f3f4f6']} />
+          <color attach="background" args={['#d1d5db']} />
           {/* Natural lighting environment */}
           <Environment preset="city" />
 

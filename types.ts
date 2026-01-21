@@ -1,4 +1,26 @@
-export type ShapeType = 'box' | 'mailer' | 'tuck' | 'bottle' | 'pouch' | 'can' | 'mannequin' | 'custom';
+export type ShapeType = 'box' | 'mailer' | 'tuck' | 'bottle' | 'pouch' | 'can' | 'mannequin';
+
+// Layer type for texture editor
+export interface Layer {
+  id: string;
+  type: 'image' | 'color' | 'text';
+  src: string; // Image URL or Color Hex or Text Content
+  x: number; // Center X in Canvas Coordinates
+  y: number; // Center Y in Canvas Coordinates
+  width: number; // Original Width
+  height: number; // Original Height
+  rotation: number; // Degrees
+  scale: number;
+  textProps?: {
+    fontSize?: number;
+    fontFamily?: string;
+    color?: string;
+    fontWeight?: 'normal' | 'bold';
+    fontStyle?: 'normal' | 'italic';
+    textAlign?: 'left' | 'center' | 'right';
+    textDecoration?: 'none' | 'underline' | 'line-through';
+  };
+}
 
 export interface PackagingState {
   shape: ShapeType;
@@ -11,12 +33,15 @@ export interface PackagingState {
   textureRotation: number;
   textureRepeat: [number, number];
   textureOffset: [number, number];
-  customModelUrl?: string;
+  modelFileUrl?: string; // URL to the GLB model file
   category?: string; // Model category: 'hat', 't-shirt', 'hoodie', etc.
+  material?: string; // Material type: '棉基', '涤纶', etc.
   // Dynamic SVG paths extracted from the model (Key: regionId/meshName)
   dynamicSVGPaths?: Record<string, { d: string, w: number, h: number }>;
   // List of mesh names to hide in the 3D scene
   hiddenMeshes?: string[];
+  // Layer data for texture editor (preserves editable layers instead of rasterized image)
+  layers?: Layer[];
 }
 
 // --- Admin / Data Types ---

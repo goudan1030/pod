@@ -112,6 +112,8 @@ const ModelUploader: React.FC = () => {
     const [newCategoryName, setNewCategoryName] = useState('');
 
     const [extractedPaths, setExtractedPaths] = useState<Record<string, any>>({});
+    const [dielineFile, setDielineFile] = useState<File | null>(null);
+    const [dielineError, setDielineError] = useState<string | null>(null);
 
     // Mesh Visibility State
     const [detectedMeshes, setDetectedMeshes] = useState<string[]>([]);
@@ -186,6 +188,124 @@ const ModelUploader: React.FC = () => {
             // Auto-extract logic for preview
             await analyzeModel(objectUrl, true);
         }
+    };
+
+    const handleDielineSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setDielineFile(file);
+        setDielineError(null);
+
+        if (!file.name.toLowerCase().endsWith('.svg')) {
+            setDielineError('目前仅支持 SVG 刀板文件，请先从 AI/PDF/DXF 导出为 SVG 后再上传。');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            try {
+                const text = reader.result as string;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'image/svg+xml');
+                const svgEl = doc.querySelector('svg');
+                if (!svgEl) {
+                    throw new Error('未在文件中找到 <svg> 元素');
+                }
+
+                let width = 0;
+                let height = 0;
+                const viewBox = svgEl.getAttribute('viewBox');
+                if (viewBox) {
+                    const parts = viewBox.split(/\s+/).map(Number);
+                    if (parts.length === 4) {
+                        width = parts[2];
+                        height = parts[3];
+                    }
+                }
+                if (!width || !height) {
+                    width = Number(svgEl.getAttribute('width') || 2048);
+                    height = Number(svgEl.getAttribute('height') || 2048);
+                }
+
+                const regions: Record<string, { d: string; w: number; h: number; label?: string }> = {};
+
+                // 1. 优先使用带 data-region-id 的路径（支持 complete-region-map.svg）
+                const taggedPaths = Array.from(doc.querySelectorAll('path[data-region-id]'));
+                if (taggedPaths.length > 0) {
+                    taggedPaths.forEach((el) => {
+                        const id = el.getAttribute('data-region-id');
+                        const d = el.getAttribute('d');
+                        if (!id || !d) return;
+                        const label = el.getAttribute('data-region-label') || undefined;
+                        regions[id] = { d, w: width, h: height, label };
+                    });
+                    setExtractedPaths(regions);
+                    return;
+                }
+
+                // 2. 没有 data-region-id 时，做「一比一」兜底：
+                //    - 把每个 path 中的多段子路径 (多次 M/m) 拆分成独立区域
+                //    - 把每个 rect 转成 path 区域
+                const splitPathData = (d: string): string[] => {
+                    const segments: string[] = [];
+                    let current = '';
+                    for (let i = 0; i < d.length; i++) {
+                        const ch = d[i];
+                        if ((ch === 'M' || ch === 'm') && current.trim().length > 0) {
+                            // 新的子路径开始，先推入当前片段
+                            segments.push(current.trim());
+                            current = ch;
+                        } else {
+                            current += ch;
+                        }
+                    }
+                    if (current.trim().length > 0) {
+                        segments.push(current.trim());
+                    }
+                    return segments;
+                };
+
+                const plainPaths = Array.from(doc.querySelectorAll('path'));
+                const rects = Array.from(doc.querySelectorAll('rect'));
+
+                if (plainPaths.length === 0 && rects.length === 0) {
+                    throw new Error('SVG 中没有 path 或 rect 元素，无法识别区域。');
+                }
+
+                let idx = 1;
+
+                plainPaths.forEach((el) => {
+                    const d = el.getAttribute('d');
+                    if (!d) return;
+                    const segments = splitPathData(d);
+                    segments.forEach((seg) => {
+                        if (!seg) return;
+                        const id = `region_${idx++}`;
+                        regions[id] = { d: seg, w: width, h: height };
+                    });
+                });
+
+                rects.forEach((el) => {
+                    const x = Number(el.getAttribute('x') || 0);
+                    const y = Number(el.getAttribute('y') || 0);
+                    const wAttr = Number(el.getAttribute('width') || width);
+                    const hAttr = Number(el.getAttribute('height') || height);
+                    const id = `region_${idx++}`;
+                    const d = `M ${x},${y} L ${x + wAttr},${y} L ${x + wAttr},${y + hAttr} L ${x},${y + hAttr} Z`;
+                    regions[id] = { d, w: width, h: height };
+                });
+
+                setExtractedPaths(regions);
+            } catch (err: any) {
+                console.error('Parse SVG dieline failed', err);
+                setDielineError(err?.message || '解析 SVG 刀板失败，请检查文件格式。');
+            }
+        };
+        reader.onerror = () => {
+            setDielineError('读取 SVG 文件失败，请重试。');
+        };
+        reader.readAsText(file);
     };
 
     const analyzeModel = async (url: string, applyDefaults: boolean = false) => {
@@ -470,6 +590,46 @@ const ModelUploader: React.FC = () => {
                                     Change
                                 </button>
                             </div>
+                        )}
+                    </div>
+
+                    {/* Dieline / 刀板文件（仅支持 SVG，本地解析） */}
+                    <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                        <h3 className="font-semibold text-gray-900 mb-2">Dieline File (SVG)</h3>
+                        <p className="text-xs text-gray-500 mb-3">
+                            上传已从 AI/PDF/DXF 导出的 SVG 刀板，系统会自动识别其中标记了 <code>data-region-id</code> 的路径作为可编辑区域。
+                        </p>
+                        {!dielineFile ? (
+                            <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                                <Upload className="text-gray-400 mb-2" size={22} />
+                                <span className="text-xs text-gray-600">点击上传 .svg 刀板文件</span>
+                                <input
+                                    type="file"
+                                    accept=".svg"
+                                    onChange={handleDielineSelect}
+                                    className="hidden"
+                                />
+                            </label>
+                        ) : (
+                            <div className="flex items-center justify-between p-3 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100">
+                                <div className="truncate pr-2">
+                                    <div className="font-medium text-xs truncate">{dielineFile.name}</div>
+                                    <div className="text-[11px] opacity-80">
+                                        {(dielineFile.size / 1024 / 1024).toFixed(2)} MB
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => { setDielineFile(null); setDielineError(null); setExtractedPaths({}); }}
+                                    className="text-[11px] underline hover:text-emerald-900"
+                                >
+                                    Change
+                                </button>
+                            </div>
+                        )}
+                        {dielineError && (
+                            <p className="mt-2 text-xs text-red-500">
+                                {dielineError}
+                            </p>
                         )}
                     </div>
 

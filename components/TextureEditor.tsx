@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Layout, Upload, Undo2, Redo2, Trash2, MousePointer2, Hand, ZoomIn, ZoomOut, Move, Layers, GripVertical, Image as ImageIcon, Maximize, Palette, Check, Square, Plus } from 'lucide-react';
+import { X, Layout, Upload, Undo2, Redo2, Trash2, MousePointer2, Hand, ZoomIn, ZoomOut, Move, Layers, GripVertical, Image as ImageIcon, Maximize, Palette, Check, Square, Plus, Filter, Type, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Package } from 'lucide-react';
 import { PackagingState } from '../types';
+import { useLanguage } from '../contexts/LanguageContext';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Center, OrbitControls, Environment } from '@react-three/drei';
 import { PackagingMesh } from './Scene';
@@ -12,65 +13,65 @@ import { extractSVGPathFromMesh } from '../utils/uvPipeline';
 
 // T-Shirt / Hoodie SVG Paths
 const TSHIRT_SVG_PATHS: Record<string, { d: string, w: number, h: number }> = {
-    front: {
-        d: "M0,185Q154,430.5,48.5,527L48.5,1502.5L1017,1502.5L1017,527Q902.5,436,1065,185Q850,58,754,0Q717,234.5,533,234.5Q351,241.5,311,0L0,185Z",
-        w: 1065,
-        h: 1502.5
-    },
-    back: {
-        d: "M0,1502.5006L1060.5,1502.5006L1060.5,510.00049Q895.5,385.50586,1028,106.00307Q793,36.505859,692.5,0Q591,39.005859,525,39.005859Q436.5,39.005859,373.5,0L38,106.00391Q152,441.00586,0.5,510.00049Q0.5,641.00049,0,1502.5006Z",
-        w: 1060.5,
-        h: 1502.5
-    },
-    sleeve_l: {
-        d: "M0,212L0,531L773,531L773,212C667.5,182,579.75,0,386.5,0C193.25,0,93.5,187,0,212Z",
-        w: 773,
-        h: 531
-    },
-    sleeve_r: {
-        d: "M0,212L0,531L773,531L773,212C667.5,182,579.75,0,386.5,0C193.25,0,93.5,187,0,212Z",
-        w: 773,
-        h: 531
-    },
-    collar: {
-        d: "M0,0L773,0L773,170L0,170Z",
-        w: 773,
-        h: 170
-    }
+    // front: {
+    //     d: "M0,185Q154,430.5,48.5,527L48.5,1502.5L1017,1502.5L1017,527Q902.5,436,1065,185Q850,58,754,0Q717,234.5,533,234.5Q351,241.5,311,0L0,185Z",
+    //     w: 1065,
+    //     h: 1502.5
+    // },
+    // back: {
+    //     d: "M0,1502.5006L1060.5,1502.5006L1060.5,510.00049Q895.5,385.50586,1028,106.00307Q793,36.505859,692.5,0Q591,39.005859,525,39.005859Q436.5,39.005859,373.5,0L38,106.00391Q152,441.00586,0.5,510.00049Q0.5,641.00049,0,1502.5006Z",
+    //     w: 1060.5,
+    //     h: 1502.5
+    // },
+    // sleeve_l: {
+    //     d: "M0,212L0,531L773,531L773,212C667.5,182,579.75,0,386.5,0C193.25,0,93.5,187,0,212Z",
+    //     w: 773,
+    //     h: 531
+    // },
+    // sleeve_r: {
+    //     d: "M0,212L0,531L773,531L773,212C667.5,182,579.75,0,386.5,0C193.25,0,93.5,187,0,212Z",
+    //     w: 773,
+    //     h: 531
+    // },
+    // collar: {
+    //     d: "M0,0L773,0L773,170L0,170Z",
+    //     w: 773,
+    //     h: 170
+    // }
 };
 
 // Hat SVG Paths (5 regions based on your API data)
 const HAT_SVG_PATHS: Record<string, { d: string, w: number, h: number }> = {
-    panel_1: {
-        // First hat panel (arc shape)
-        d: "M75,0 Q150,20 225,0 L200,320 L100,320 Z",
-        w: 300,
-        h: 320
-    },
-    panel_2: {
-        // Second hat panel (arc shape)
-        d: "M75,0 Q150,20 225,0 L200,320 L100,320 Z",
-        w: 300,
-        h: 320
-    },
-    panel_3: {
-        // Third hat panel (arc shape)
-        d: "M75,0 Q150,20 225,0 L200,320 L100,320 Z",
-        w: 300,
-        h: 320
-    },
-    brim_top: {
-        // Hat brim top (curved arc)
-        d: "M0,100 Q225,50 450,100 L450,200 Q225,150 0,200 Z",
-        w: 450,
-        h: 200
-    },
-    brim_bottom: {
-        // Hat brim bottom (curved arc, slightly different)
-        d: "M50,80 Q225,40 400,80 L400,160 Q225,120 50,160 Z",
-        w: 450,
-        h: 180
-    }
+    // panel_1: {
+    //     // First hat panel (arc shape)
+    //     d: "M75,0 Q150,20 225,0 L200,320 L100,320 Z",
+    //     w: 300,
+    //     h: 320
+    // },
+    // panel_2: {
+    //     // Second hat panel (arc shape)
+    //     d: "M75,0 Q150,20 225,0 L200,320 L100,320 Z",
+    //     w: 300,
+    //     h: 320
+    // },
+    // panel_3: {
+    //     // Third hat panel (arc shape)
+    //     d: "M75,0 Q150,20 225,0 L200,320 L100,320 Z",
+    //     w: 300,
+    //     h: 320
+    // },
+    // brim_top: {
+    //     // Hat brim top (curved arc)
+    //     d: "M0,100 Q225,50 450,100 L450,200 Q225,150 0,200 Z",
+    //     w: 450,
+    //     h: 200
+    // },
+    // brim_bottom: {
+    //     // Hat brim bottom (curved arc, slightly different)
+    //     d: "M50,80 Q225,40 400,80 L400,160 Q225,120 50,160 Z",
+    //     w: 450,
+    //     h: 180
+    // }
 };
 
 // Category to SVG Path mapping
@@ -84,20 +85,146 @@ const CATEGORY_SVG_PATHS: Record<string, Record<string, { d: string, w: number, 
 // Fallback for T-shirt (mannequin mode)
 const REGION_SVG_PATHS = TSHIRT_SVG_PATHS;
 
+// 包装相关SVG素材
+interface PackagingAsset {
+    id: string;
+    name: string;
+    svg: string;
+    width: number;
+    height: number;
+}
+
+const PACKAGING_ASSETS: PackagingAsset[] = [
+    {
+        id: 'stack-limit',
+        name: '堆叠限制',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50" y="40" font-size="40" font-weight="bold" text-anchor="middle" fill="#000">8</text><line x1="20" y1="60" x2="80" y2="60" stroke="#000" stroke-width="4"/><line x1="20" y1="70" x2="80" y2="70" stroke="#000" stroke-width="4"/></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'handle-with-care',
+        name: '小心轻放',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M30 20 L30 50 L20 50 L20 60 L50 60 L50 50 L40 50 L40 20 Z M60 20 L60 50 L50 50 L50 60 L80 60 L80 50 L70 50 L70 20 Z" fill="#000"/><rect x="25" y="65" width="50" height="25" fill="#000"/></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'ce-mark',
+        name: 'CE标记',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><text x="50" y="60" font-size="50" font-weight="bold" text-anchor="middle" fill="#000" font-family="Arial">CE</text></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'recycle',
+        name: '回收',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M50 20 L65 35 L50 50 M35 35 L50 50 L35 65 M50 50 L65 65 L50 80" stroke="#000" stroke-width="4" fill="none" stroke-linecap="round"/><path d="M50 20 L35 35 M65 35 L50 50 M35 65 L50 80" stroke="#000" stroke-width="4" fill="none" stroke-linecap="round"/></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'fsc',
+        name: 'FSC认证',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M50 20 L40 50 L30 50 L45 65 L35 65 L50 80 L65 65 L55 65 L70 50 L60 50 Z" fill="#000"/><text x="50" y="90" font-size="12" text-anchor="middle" fill="#000">FSC</text></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'do-not-litter',
+        name: '请勿乱扔',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="35" r="15" fill="#000"/><rect x="40" y="50" width="20" height="30" fill="#000"/><rect x="35" y="50" width="30" height="5" fill="#000"/></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'fragile',
+        name: '易碎品',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect x="30" y="20" width="40" height="60" fill="none" stroke="#000" stroke-width="3"/><line x1="40" y1="30" x2="60" y2="30" stroke="#000" stroke-width="2"/><line x1="40" y1="40" x2="60" y2="40" stroke="#000" stroke-width="2"/><line x1="40" y1="50" x2="60" y2="50" stroke="#000" stroke-width="2"/><line x1="40" y1="60" x2="60" y2="60" stroke="#000" stroke-width="2"/><line x1="40" y1="70" x2="60" y2="70" stroke="#000" stroke-width="2"/></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'flammable',
+        name: '易燃',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M50 20 Q45 30 50 40 Q55 30 50 20 M45 35 Q50 45 45 55 Q40 45 45 35 M55 35 Q60 45 55 55 Q50 45 55 35" fill="#000"/><path d="M50 50 L50 80" stroke="#000" stroke-width="3" stroke-linecap="round"/></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'temperature',
+        name: '温度要求',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect x="35" y="20" width="10" height="50" fill="#000"/><circle cx="40" cy="75" r="8" fill="#000"/><text x="60" y="45" font-size="20" fill="#000">°C</text></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'pet',
+        name: 'PET',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M50 20 L65 35 L50 50 M35 35 L50 50 L35 65 M50 50 L65 65 L50 80" stroke="#000" stroke-width="4" fill="none" stroke-linecap="round"/><text x="50" y="70" font-size="20" text-anchor="middle" fill="#000">1</text><text x="50" y="95" font-size="12" text-anchor="middle" fill="#000">PETE</text></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'hdpe',
+        name: 'HDPE',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M50 20 L65 35 L50 50 M35 35 L50 50 L35 65 M50 50 L65 65 L50 80" stroke="#000" stroke-width="4" fill="none" stroke-linecap="round"/><text x="50" y="70" font-size="20" text-anchor="middle" fill="#000">2</text><text x="50" y="95" font-size="12" text-anchor="middle" fill="#000">HDPE</text></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'pvc',
+        name: 'PVC',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M50 20 L65 35 L50 50 M35 35 L50 50 L35 65 M50 50 L65 65 L50 80" stroke="#000" stroke-width="4" fill="none" stroke-linecap="round"/><text x="50" y="70" font-size="20" text-anchor="middle" fill="#000">3</text><text x="50" y="95" font-size="12" text-anchor="middle" fill="#000">PVC</text></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'ldpe',
+        name: 'LDPE',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M50 20 L65 35 L50 50 M35 35 L50 50 L35 65 M50 50 L65 65 L50 80" stroke="#000" stroke-width="4" fill="none" stroke-linecap="round"/><text x="50" y="70" font-size="20" text-anchor="middle" fill="#000">4</text><text x="50" y="95" font-size="12" text-anchor="middle" fill="#000">LDPE</text></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'warning',
+        name: '警告',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M50 20 L20 80 L80 80 Z" fill="#000"/><text x="50" y="65" font-size="30" font-weight="bold" text-anchor="middle" fill="#fff">!</text></svg>',
+        width: 100,
+        height: 100
+    },
+    {
+        id: 'do-not-cut',
+        name: '禁止切割',
+        svg: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><path d="M30 30 L70 70 M70 30 L30 70" stroke="#000" stroke-width="6" stroke-linecap="round"/><path d="M40 20 L50 30 L60 20" fill="#000"/></svg>',
+        width: 100,
+        height: 100
+    }
+];
+
 
 // --- Types ---
 
 interface Layer {
     id: string;
-    type: 'image' | 'color';
-    src: string; // Image URL or Color Hex
-    imgElement: HTMLImageElement | null; // Null for color layers
+    type: 'image' | 'color' | 'text';
+    src: string; // Image URL or Color Hex or Text Content
+    imgElement: HTMLImageElement | null; // Null for color/text layers
     x: number; // Center X in Canvas Coordinates
     y: number; // Center Y in Canvas Coordinates
     width: number; // Original Width
     height: number; // Original Height
     rotation: number; // Degrees
     scale: number;
+    textProps?: {
+        fontSize?: number;
+        fontFamily?: string;
+        color?: string;
+        fontWeight?: 'normal' | 'bold';
+        fontStyle?: 'normal' | 'italic';
+        textAlign?: 'left' | 'center' | 'right';
+        textDecoration?: 'none' | 'underline' | 'line-through';
+    };
 }
 
 interface Region {
@@ -134,79 +261,560 @@ interface ViewportState {
 interface TextureEditorProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (url: string) => void;
+    onSave: (url: string, layers?: Layer[]) => void;
     initialImage: string | null;
     config: PackagingState;
+    initialLayers?: Layer[];
 }
 
 // --- Helper: Color Picker Component ---
+// 颜色按钮组件 - 第一步交互
+const ColorButton: React.FC<{
+    position: { x: number, y: number };
+    onClick: () => void;
+    onClose: () => void;
+}> = ({ position, onClick, onClose }) => {
+    return (
+        <div
+            className="absolute z-50 animate-in fade-in zoom-in-95 duration-200"
+            style={{ left: position.x, top: position.y }}
+            onMouseDown={e => e.stopPropagation()} // Prevent canvas drag
+        >
+            <button
+                onClick={onClick}
+                className="bg-white rounded-full px-4 py-2 shadow-lg border border-gray-200 hover:shadow-xl hover:border-brand-300 transition-all flex items-center gap-2 group"
+            >
+                <div className="w-5 h-5 rounded-full bg-gradient-to-br from-red-400 via-yellow-400 via-green-400 to-blue-400 p-0.5">
+                    <div className="w-full h-full rounded-full bg-white"></div>
+                </div>
+                <span className="text-sm font-medium text-gray-700 group-hover:text-brand-600">颜色</span>
+            </button>
+        </div>
+    );
+};
+
+// 将十六进制颜色转换为HSV
+const hexToHsv = (hex: string): { h: number; s: number; v: number } => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const delta = max - min;
+    
+    let h = 0;
+    if (delta !== 0) {
+        if (max === r) {
+            h = ((g - b) / delta + (g < b ? 6 : 0)) / 6;
+        } else if (max === g) {
+            h = ((b - r) / delta + 2) / 6;
+        } else {
+            h = ((r - g) / delta + 4) / 6;
+        }
+    }
+    
+    const s = max === 0 ? 0 : delta / max;
+    const v = max;
+    
+    return { h: h * 360, s: s * 100, v: v * 100 };
+};
+
+// 将HSV转换为十六进制颜色
+const hsvToHex = (h: number, s: number, v: number): string => {
+    s /= 100;
+    v /= 100;
+    const c = v * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = v - c;
+    
+    let r = 0, g = 0, b = 0;
+    
+    if (h >= 0 && h < 60) {
+        r = c; g = x; b = 0;
+    } else if (h >= 60 && h < 120) {
+        r = x; g = c; b = 0;
+    } else if (h >= 120 && h < 180) {
+        r = 0; g = c; b = x;
+    } else if (h >= 180 && h < 240) {
+        r = 0; g = x; b = c;
+    } else if (h >= 240 && h < 300) {
+        r = x; g = 0; b = c;
+    } else if (h >= 300 && h < 360) {
+        r = c; g = 0; b = x;
+    }
+    
+    r = Math.round((r + m) * 255);
+    g = Math.round((g + m) * 255);
+    b = Math.round((b + m) * 255);
+    
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+};
+
+// 色块编辑工具栏组件
+const ColorBlockEditorToolbar: React.FC<{
+    layer: Layer;
+    position: { x: number, y: number };
+    onUpdate: (updates: { src?: string; width?: number; height?: number; rotation?: number; scale?: number }) => void;
+    onClose: () => void;
+}> = ({ layer, position, onUpdate, onClose }) => {
+    return (
+        <div
+            className="absolute z-50 bg-white rounded-xl shadow-2xl border border-gray-100 p-3 animate-in fade-in zoom-in-95 duration-200"
+            style={{ left: position.x, top: position.y }}
+            onMouseDown={e => e.stopPropagation()}
+        >
+            <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">色块编辑</span>
+                <button onClick={onClose} className="ml-auto text-gray-400 hover:text-gray-600"><X size={14} /></button>
+            </div>
+
+            {/* 颜色选择 */}
+            <div className="mb-3">
+                <div className="text-xs font-medium text-gray-700 mb-1.5">颜色</div>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="color"
+                        value={layer.src}
+                        onChange={(e) => onUpdate({ src: e.target.value })}
+                        className="w-10 h-10 rounded border border-gray-200 cursor-pointer"
+                        title="颜色"
+                    />
+                    <input
+                        type="text"
+                        value={layer.src}
+                        onChange={(e) => {
+                            if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                                onUpdate({ src: e.target.value });
+                            }
+                        }}
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs font-mono focus:outline-none focus:border-brand-500 uppercase"
+                        placeholder="#3b82f6"
+                    />
+                </div>
+            </div>
+
+            {/* 大小调整 */}
+            <div className="mb-3">
+                <div className="text-xs font-medium text-gray-700 mb-1.5">大小</div>
+                <div className="grid grid-cols-2 gap-2">
+                    <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block">宽度</label>
+                        <div className="flex items-center gap-1 border border-gray-200 rounded-lg px-2">
+                            <button
+                                onClick={() => onUpdate({ width: Math.max(10, (layer.width || 300) - 10) })}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <ZoomOut size={12} />
+                            </button>
+                            <input
+                                type="number"
+                                value={Math.round(layer.width || 300)}
+                                onChange={(e) => onUpdate({ width: Math.max(10, parseInt(e.target.value) || 300) })}
+                                className="w-16 text-center text-xs border-0 focus:outline-none"
+                                min="10"
+                            />
+                            <button
+                                onClick={() => onUpdate({ width: (layer.width || 300) + 10 })}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <ZoomIn size={12} />
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-gray-500 mb-1 block">高度</label>
+                        <div className="flex items-center gap-1 border border-gray-200 rounded-lg px-2">
+                            <button
+                                onClick={() => onUpdate({ height: Math.max(10, (layer.height || 300) - 10) })}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <ZoomOut size={12} />
+                            </button>
+                            <input
+                                type="number"
+                                value={Math.round(layer.height || 300)}
+                                onChange={(e) => onUpdate({ height: Math.max(10, parseInt(e.target.value) || 300) })}
+                                className="w-16 text-center text-xs border-0 focus:outline-none"
+                                min="10"
+                            />
+                            <button
+                                onClick={() => onUpdate({ height: (layer.height || 300) + 10 })}
+                                className="text-gray-500 hover:text-gray-700"
+                            >
+                                <ZoomIn size={12} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* 旋转 */}
+            <div>
+                <div className="text-xs font-medium text-gray-700 mb-1.5">旋转</div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => onUpdate({ rotation: ((layer.rotation || 0) - 15) % 360 })}
+                        className="p-1.5 border border-gray-200 rounded hover:bg-gray-50 text-gray-600"
+                        title="逆时针旋转15度"
+                    >
+                        <Undo2 size={14} />
+                    </button>
+                    <input
+                        type="number"
+                        value={Math.round(layer.rotation || 0)}
+                        onChange={(e) => onUpdate({ rotation: parseInt(e.target.value) || 0 })}
+                        className="flex-1 px-2 py-1.5 border border-gray-200 rounded text-xs text-center focus:outline-none focus:border-brand-500"
+                        placeholder="0"
+                    />
+                    <span className="text-xs text-gray-500">°</span>
+                    <button
+                        onClick={() => onUpdate({ rotation: ((layer.rotation || 0) + 15) % 360 })}
+                        className="p-1.5 border border-gray-200 rounded hover:bg-gray-50 text-gray-600"
+                        title="顺时针旋转15度"
+                    >
+                        <Redo2 size={14} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// 文字编辑工具栏组件
+const TextEditorToolbar: React.FC<{
+    layer: Layer;
+    position: { x: number, y: number };
+    onUpdate: (updates: Partial<Layer['textProps']> & { src?: string }) => void;
+    onClose: () => void;
+}> = ({ layer, position, onUpdate, onClose }) => {
+    const textProps = layer.textProps || {
+        fontSize: 24,
+        fontFamily: 'Arial',
+        color: '#000000',
+        fontWeight: 'normal',
+        fontStyle: 'normal',
+        textAlign: 'center',
+        textDecoration: 'none',
+    };
+
+    const commonFonts = ['Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Verdana', 'Georgia', 'Palatino', 'Garamond', 'Bookman', 'Comic Sans MS', 'Trebuchet MS', 'Impact'];
+
+    return (
+        <div
+            className="absolute z-50 bg-white rounded-xl shadow-2xl border border-gray-100 p-3 animate-in fade-in zoom-in-95 duration-200"
+            style={{ left: position.x, top: position.y }}
+            onMouseDown={e => e.stopPropagation()}
+        >
+            <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">文字编辑</span>
+                <button onClick={onClose} className="ml-auto text-gray-400 hover:text-gray-600"><X size={14} /></button>
+            </div>
+
+            {/* 文字内容输入 */}
+            <div className="mb-3">
+                <input
+                    type="text"
+                    value={layer.src || '文字'}
+                    onChange={(e) => onUpdate({ src: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-brand-500"
+                    placeholder="在这输入文字"
+                />
+            </div>
+
+            {/* 字体和大小 */}
+            <div className="flex gap-2 mb-3">
+                <select
+                    value={textProps.fontFamily || 'Arial'}
+                    onChange={(e) => onUpdate({ fontFamily: e.target.value })}
+                    className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-brand-500"
+                >
+                    {commonFonts.map(font => (
+                        <option key={font} value={font}>{font}</option>
+                    ))}
+                </select>
+                <div className="flex items-center gap-1 border border-gray-200 rounded-lg px-2">
+                    <button
+                        onClick={() => onUpdate({ fontSize: Math.max(8, (textProps.fontSize || 24) - 1) })}
+                        className="text-gray-500 hover:text-gray-700"
+                    >
+                        <ZoomOut size={12} />
+                    </button>
+                    <input
+                        type="number"
+                        value={textProps.fontSize || 24}
+                        onChange={(e) => onUpdate({ fontSize: Math.max(8, Math.min(200, parseInt(e.target.value) || 24)) })}
+                        className="w-12 text-center text-xs border-0 focus:outline-none"
+                        min="8"
+                        max="200"
+                    />
+                    <button
+                        onClick={() => onUpdate({ fontSize: Math.min(200, (textProps.fontSize || 24) + 1) })}
+                        className="text-gray-500 hover:text-gray-700"
+                    >
+                        <ZoomIn size={12} />
+                    </button>
+                </div>
+            </div>
+
+            {/* 样式按钮 */}
+            <div className="flex items-center gap-1 mb-3 p-1 bg-gray-50 rounded-lg">
+                <button
+                    onClick={() => onUpdate({ fontWeight: textProps.fontWeight === 'bold' ? 'normal' : 'bold' })}
+                    className={`p-1.5 rounded transition-colors ${textProps.fontWeight === 'bold' ? 'bg-white shadow-sm text-brand-600' : 'text-gray-600 hover:bg-white'}`}
+                    title="粗体"
+                >
+                    <Bold size={14} />
+                </button>
+                <button
+                    onClick={() => onUpdate({ fontStyle: textProps.fontStyle === 'italic' ? 'normal' : 'italic' })}
+                    className={`p-1.5 rounded transition-colors ${textProps.fontStyle === 'italic' ? 'bg-white shadow-sm text-brand-600' : 'text-gray-600 hover:bg-white'}`}
+                    title="斜体"
+                >
+                    <Italic size={14} />
+                </button>
+                <button
+                    onClick={() => onUpdate({ textDecoration: textProps.textDecoration === 'underline' ? 'none' : 'underline' })}
+                    className={`p-1.5 rounded transition-colors ${textProps.textDecoration === 'underline' ? 'bg-white shadow-sm text-brand-600' : 'text-gray-600 hover:bg-white'}`}
+                    title="下划线"
+                >
+                    <Underline size={14} />
+                </button>
+                <div className="w-px h-4 bg-gray-300 mx-1"></div>
+                <button
+                    onClick={() => onUpdate({ textAlign: 'left' })}
+                    className={`p-1.5 rounded transition-colors ${textProps.textAlign === 'left' ? 'bg-white shadow-sm text-brand-600' : 'text-gray-600 hover:bg-white'}`}
+                    title="左对齐"
+                >
+                    <AlignLeft size={14} />
+                </button>
+                <button
+                    onClick={() => onUpdate({ textAlign: 'center' })}
+                    className={`p-1.5 rounded transition-colors ${textProps.textAlign === 'center' ? 'bg-white shadow-sm text-brand-600' : 'text-gray-600 hover:bg-white'}`}
+                    title="居中"
+                >
+                    <AlignCenter size={14} />
+                </button>
+                <button
+                    onClick={() => onUpdate({ textAlign: 'right' })}
+                    className={`p-1.5 rounded transition-colors ${textProps.textAlign === 'right' ? 'bg-white shadow-sm text-brand-600' : 'text-gray-600 hover:bg-white'}`}
+                    title="右对齐"
+                >
+                    <AlignRight size={14} />
+                </button>
+            </div>
+
+            {/* 颜色选择 */}
+            <div className="flex items-center gap-2">
+                <input
+                    type="color"
+                    value={textProps.color || '#000000'}
+                    onChange={(e) => onUpdate({ color: e.target.value })}
+                    className="w-8 h-8 rounded border border-gray-200 cursor-pointer"
+                    title="文字颜色"
+                />
+                <input
+                    type="text"
+                    value={textProps.color || '#000000'}
+                    onChange={(e) => {
+                        if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                            onUpdate({ color: e.target.value });
+                        }
+                    }}
+                    className="flex-1 px-2 py-1 border border-gray-200 rounded text-xs font-mono focus:outline-none focus:border-brand-500 uppercase"
+                    placeholder="#000000"
+                />
+            </div>
+        </div>
+    );
+};
+
 const ColorPickerPopup: React.FC<{
     color: string | null;
     onChange: (c: string | null) => void;
     position: { x: number, y: number };
     onClose: () => void;
 }> = ({ color, onChange, position, onClose }) => {
-    const [hex, setHex] = useState(color || '#ffffff');
+    const defaultColor = '#ffffff';
+    const currentColor = color || defaultColor;
+    const [hsv, setHsv] = useState(() => hexToHsv(currentColor));
+    const [hex, setHex] = useState(currentColor);
+    const [isDragging, setIsDragging] = useState<'hue' | 'saturation' | null>(null);
 
     useEffect(() => {
-        setHex(color || '#ffffff');
+        if (color) {
+            const newHsv = hexToHsv(color);
+            setHsv(newHsv);
+            setHex(color);
+        } else {
+            setHsv(hexToHsv(defaultColor));
+            setHex(defaultColor);
+        }
     }, [color]);
+
+    const updateColor = (newHsv: { h: number; s: number; v: number }) => {
+        setHsv(newHsv);
+        const newHex = hsvToHex(newHsv.h, newHsv.s, newHsv.v);
+        setHex(newHex);
+        onChange(newHex);
+    };
+
+    const handleSaturationBrightnessClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width;
+        const y = (e.clientY - rect.top) / rect.height;
+        updateColor({ ...hsv, s: Math.max(0, Math.min(100, x * 100)), v: Math.max(0, Math.min(100, (1 - y) * 100)) });
+    };
+
+    useEffect(() => {
+        if (!isDragging) return;
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (isDragging === 'saturation') {
+                const element = document.elementFromPoint(e.clientX, e.clientY);
+                const picker = element?.closest('[data-saturation-picker]') as HTMLElement;
+                if (picker) {
+                    const rect = picker.getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / rect.width;
+                    const y = (e.clientY - rect.top) / rect.height;
+                    updateColor({ ...hsv, s: Math.max(0, Math.min(100, x * 100)), v: Math.max(0, Math.min(100, (1 - y) * 100)) });
+                }
+            } else if (isDragging === 'hue') {
+                const element = document.elementFromPoint(e.clientX, e.clientY);
+                const picker = element?.closest('[data-hue-picker]') as HTMLElement;
+                if (picker) {
+                    const rect = picker.getBoundingClientRect();
+                    const x = (e.clientX - rect.left) / rect.width;
+                    updateColor({ ...hsv, h: Math.max(0, Math.min(360, x * 360)) });
+                }
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(null);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging, hsv]);
+
+    const handleHueClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = (e.clientX - rect.left) / rect.width;
+        updateColor({ ...hsv, h: Math.max(0, Math.min(360, x * 360)) });
+    };
+
+    const handleHueDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+        if (isDragging === 'hue') {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            updateColor({ ...hsv, h: Math.max(0, Math.min(360, x * 360)) });
+        }
+    };
 
     const handleHexChange = (val: string) => {
         setHex(val);
         if (/^#[0-9A-F]{6}$/i.test(val)) {
+            const newHsv = hexToHsv(val);
+            setHsv(newHsv);
             onChange(val);
         }
     };
 
+    // 生成色相渐变色
+    const hueGradient = 'linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)';
+    // 生成当前色相的饱和度和亮度渐变
+    // 水平：从白色到当前色相的全饱和颜色
+    // 垂直：从当前颜色到黑色
+    const currentHueColor = hsvToHex(hsv.h, 100, 100);
+    const saturationBrightnessGradient = {
+        background: `linear-gradient(to bottom, transparent, #000000), linear-gradient(to right, #ffffff, ${currentHueColor})`
+    };
+
     return (
         <div
-            className="absolute z-50 bg-white rounded-xl shadow-2xl border border-gray-100 p-4 w-64 animate-in fade-in zoom-in-95 duration-200"
+            className="absolute z-50 bg-white rounded-xl shadow-2xl border border-gray-100 p-4 w-72 animate-in fade-in zoom-in-95 duration-200"
             style={{ left: position.x, top: position.y }}
-            onMouseDown={e => e.stopPropagation()} // Prevent canvas drag
+            onMouseDown={e => e.stopPropagation()}
         >
             <div className="flex justify-between items-center mb-3">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Face Color</span>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">FACE COLOR</span>
                 <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
             </div>
 
             {/* Transparent Option */}
-            <div className="mb-4">
-                <div className="text-xs font-medium text-gray-700 mb-1.5">Transparent</div>
+            <div className="mb-3">
+                <div className="text-xs font-medium text-gray-700 mb-1.5">透明</div>
                 <button
                     onClick={() => onChange(null)}
-                    className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all ${!color ? 'border-brand-500 ring-2 ring-brand-100' : 'border-gray-200 hover:border-gray-300'}`}
+                    className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all relative ${!color ? 'border-brand-500 ring-2 ring-brand-100' : 'border-gray-200 hover:border-gray-300'}`}
                 >
                     {!color && <Check size={14} className="text-brand-600" />}
-                    <div className="absolute inset-0 -z-10 rounded-full opacity-20" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '4px 4px' }}></div>
+                    <div className="absolute inset-0 rounded-full opacity-30" style={{ backgroundImage: 'repeating-conic-gradient(#000 0% 25%, #fff 0% 50%)', backgroundSize: '4px 4px' }}></div>
                 </button>
             </div>
 
-            {/* Color Input */}
-            <div className="mb-4">
-                <div className="text-xs font-medium text-gray-700 mb-1.5">Color</div>
-                <div className="relative w-full h-24 rounded-lg overflow-hidden cursor-pointer shadow-sm border border-gray-200 mb-2 group">
-                    <input
-                        type="color"
-                        value={hex}
-                        onChange={(e) => {
-                            setHex(e.target.value);
-                            onChange(e.target.value);
+            <div className="h-px bg-gray-200 mb-3"></div>
+
+            {/* Color Selection */}
+            <div className="mb-3">
+                <div className="text-xs font-medium text-gray-700 mb-1.5">颜色</div>
+                
+                {/* Saturation and Brightness Picker */}
+                <div
+                    data-saturation-picker
+                    className="relative w-full h-32 rounded-lg overflow-hidden cursor-crosshair mb-2 border border-gray-200"
+                    style={saturationBrightnessGradient}
+                    onClick={handleSaturationBrightnessClick}
+                    onMouseDown={(e) => {
+                        setIsDragging('saturation');
+                        handleSaturationBrightnessClick(e);
+                    }}
+                >
+                    <div
+                        className="absolute w-3 h-3 rounded-full border-2 border-white shadow-lg pointer-events-none z-10"
+                        style={{
+                            left: `${hsv.s}%`,
+                            top: `${100 - hsv.v}%`,
+                            transform: 'translate(-50%, -50%)'
                         }}
-                        className="absolute inset-0 w-full h-full p-0 border-0 opacity-0 cursor-pointer z-10"
                     />
-                    <div className="w-full h-full" style={{ backgroundColor: hex }}></div>
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-black/10 pointer-events-none"></div>
                 </div>
 
-                {/* Hex Input */}
+                {/* Hue Slider */}
+                <div
+                    data-hue-picker
+                    className="relative w-full h-4 rounded cursor-pointer mb-2 border border-gray-200"
+                    style={{ background: hueGradient }}
+                    onClick={handleHueClick}
+                    onMouseDown={(e) => {
+                        setIsDragging('hue');
+                        handleHueClick(e);
+                    }}
+                >
+                    <div
+                        className="absolute w-3 h-3 rounded-full border-2 border-white shadow-lg pointer-events-none top-1/2 z-10"
+                        style={{
+                            left: `${(hsv.h / 360) * 100}%`,
+                            transform: 'translate(-50%, -50%)'
+                        }}
+                    />
+                </div>
+
+                {/* Color Preview and Hex Input */}
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: hex }}></div>
                     <input
                         type="text"
-                        value={hex}
+                        value={hex.toUpperCase()}
                         onChange={(e) => handleHexChange(e.target.value)}
                         className="flex-1 border border-gray-200 rounded-md px-2 py-1.5 text-xs font-mono text-gray-600 focus:outline-none focus:border-brand-500 uppercase"
+                        placeholder="#FFFFFF"
                     />
                 </div>
             </div>
@@ -252,12 +860,23 @@ const PreviewScene: React.FC<{ config: PackagingState; canvasRef: React.RefObjec
             <Center>
                 <PackagingMesh config={{ ...config, textureUrl: null }} overrideTexture={canvasTexture} />
             </Center>
-            <OrbitControls makeDefault minPolarAngle={0} maxPolarAngle={Math.PI} enablePan={false} autoRotate={true} autoRotateSpeed={1.0} />
+            <OrbitControls 
+                makeDefault 
+                minPolarAngle={0} 
+                maxPolarAngle={Math.PI} 
+                enablePan={true} 
+                enableZoom={true} 
+                autoRotate={false}
+                minDistance={40}
+                maxDistance={80}
+                target={[0, 0, 0]}
+            />
         </React.Suspense>
     );
 };
 
-const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, initialImage, config }) => {
+const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, initialImage, config, initialLayers }) => {
+    const { language, t } = useLanguage();
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const uiCanvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -265,12 +884,28 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
     // -- State --
     const [layers, setLayers] = useState<Layer[]>([]);
     const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+    const [activePanel, setActivePanel] = useState<'upload' | 'layers' | 'assets'>('upload');
+    const [uvMode, setUvMode] = useState<'database' | 'custom'>('database'); // UV 模式：database = 使用数据库 SVG region
+
+    interface UploadedImage {
+        id: string;
+        src: string;
+        name?: string;
+        createdAt: number;
+    }
+    const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+    const draggingLayerIdRef = useRef<string | null>(null);
+    const [dragOverLayerId, setDragOverLayerId] = useState<string | null>(null);
+    const [insertPosition, setInsertPosition] = useState<'above' | 'below' | null>(null);
 
     // Face/Region Colors
     const [faceColors, setFaceColors] = useState<Record<string, string | null>>({});
     const [activeFaceId, setActiveFaceId] = useState<string | null>(null);
     const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
     const [colorPickerPos, setColorPickerPos] = useState<{ x: number, y: number } | null>(null);
+    const [showColorButton, setShowColorButton] = useState<{ regionId: string; position: { x: number, y: number } } | null>(null);
+    const [textEditorPos, setTextEditorPos] = useState<{ x: number, y: number } | null>(null);
+    const [colorBlockEditorPos, setColorBlockEditorPos] = useState<{ x: number, y: number } | null>(null);
 
     // Custom Model Data
     const [customUVs, setCustomUVs] = useState<Float32Array[]>([]);
@@ -280,6 +915,12 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
     const [customPartsLayout, setCustomPartsLayout] = useState<UVLayout[]>([]);
     // Store dynamic SVG paths for custom models
     const [dynamicPaths, setDynamicPaths] = useState<Record<string, { d: string, w: number, h: number }>>({});
+    const [uvMeshData, setUvMeshData] = useState<{
+        uvs: Float32Array;
+        positions: Float32Array;
+        indices: Uint32Array | Uint16Array | Uint8Array | null;
+    } | null>(null);
+    const [uvWireframe, setUvWireframe] = useState<Float32Array | null>(null);
     const [isLoadingUVs, setIsLoadingUVs] = useState(false);
     const [previewVersion, setPreviewVersion] = useState(0);
     const [cursorStyle, setCursorStyle] = useState('default');
@@ -415,141 +1056,168 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
         return islands;
     }, [customUVs]);
+    console.log('customUvIslands', customUvIslands);
 
-    // Define Clickable Regions based on Shape
+
+
+    // 解析 SVG 路径的边界框（bounding box）
+    const getPathBounds = useCallback((pathData: string): { x: number; y: number; width: number; height: number } => {
+        try {
+            // 优先使用 SVG DOM API 获取精确的边界框（支持所有路径类型，包括曲线）
+            if (typeof document !== 'undefined') {
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                // 设置足够大的 viewBox 以确保路径不被裁剪
+                svg.setAttribute('viewBox', '0 0 10000 10000');
+                svg.setAttribute('width', '10000');
+                svg.setAttribute('height', '10000');
+                svg.style.position = 'absolute';
+                svg.style.visibility = 'hidden';
+                svg.style.width = '0';
+                svg.style.height = '0';
+                
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', pathData);
+                svg.appendChild(path);
+                document.body.appendChild(svg);
+                
+                try {
+                    const bbox = path.getBBox();
+                    document.body.removeChild(svg);
+                    return {
+                        x: bbox.x,
+                        y: bbox.y,
+                        width: bbox.width,
+                        height: bbox.height
+                    };
+                } catch (e) {
+                    if (document.body.contains(svg)) {
+                        document.body.removeChild(svg);
+                    }
+                }
+            }
+
+            // 回退方法：使用 Canvas API 测量路径
+            try {
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 4096;
+                tempCanvas.height = 4096;
+                const tempCtx = tempCanvas.getContext('2d');
+                if (tempCtx) {
+                    const path = new Path2D(pathData);
+                    // 使用 isPointInPath 来估算边界（采样方法）
+                    // 更简单：直接使用路径的近似边界
+                    const bounds = tempCtx.isPointInPath(path, 0, 0) ? { minX: 0, minY: 0, maxX: 4096, maxY: 4096 } : null;
+                    
+                    // 如果 Canvas API 不可靠，回退到解析坐标点
+                    if (!bounds) {
+                        const coords: number[] = [];
+                        const numberPattern = /[-+]?(?:\d*\.\d+|\d+\.?)(?:[eE][-+]?\d+)?/g;
+                        const matches = pathData.match(numberPattern);
+                        
+                        if (matches) {
+                            const numbers = matches.map(Number).filter(n => !isNaN(n));
+                            for (let i = 0; i < numbers.length; i += 2) {
+                                if (i + 1 < numbers.length) {
+                                    coords.push(numbers[i], numbers[i + 1]);
+                                }
+                            }
+                        }
+                        
+                        if (coords.length === 0) {
+                            return { x: 0, y: 0, width: 100, height: 100 };
+                        }
+
+                        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                        for (let i = 0; i < coords.length; i += 2) {
+                            const x = coords[i];
+                            const y = coords[i + 1];
+                            minX = Math.min(minX, x);
+                            minY = Math.min(minY, y);
+                            maxX = Math.max(maxX, x);
+                            maxY = Math.max(maxY, y);
+                        }
+
+                        return {
+                            x: minX,
+                            y: minY,
+                            width: maxX - minX || 100,
+                            height: maxY - minY || 100
+                        };
+                    }
+                }
+            } catch (e) {
+                console.warn('Canvas bounds calculation failed:', e);
+            }
+
+            // 最终回退
+            return { x: 0, y: 0, width: 100, height: 100 };
+        } catch (e) {
+            console.warn('Failed to parse path bounds:', e);
+            return { x: 0, y: 0, width: 100, height: 100 };
+        }
+    }, []);
+
+    // Define Clickable Regions based on dynamic SVG paths or fallback to single canvas region
     const getRegions = useCallback((w: number, h: number): Region[] => {
-        // Get category from config, fallback to auto-detection
-        const category = config.category || (config.shape === 'mannequin' ? 't-shirt' : 'custom');
+        // 根据 UV 模式选择数据源
+        if (uvMode === 'database') {
+            // 使用数据库中的 SVG region（config.dynamicSVGPaths）
+            const dynamic = config.dynamicSVGPaths || {};
+            const dynamicKeys = Object.keys(dynamic);
 
-        // 1. Hat (5 panels)
-        if (category === 'hat') {
-            const panelWidth = w * 0.3;  // Each panel takes 30% width
-            const panelHeight = h * 0.6; // Panels take 60% height
-            const brimWidth = w * 0.9;   // Brim spans 90% width
-            const brimHeight = h * 0.2;  // Brim takes 20% height
-            const spacing = 10;
+            if (dynamicKeys.length > 0) {
+                // 获取 SVG 的原始画布尺寸（所有路径共享同一个画布）
+                const firstPath = dynamic[dynamicKeys[0]];
+                const svgCanvasWidth = firstPath?.w || w;
+                const svgCanvasHeight = firstPath?.h || h;
 
-            return [
-                { id: 'panel_1', label: '主体-1 (Panel 1)', x: spacing, y: spacing, w: panelWidth, h: panelHeight },
-                { id: 'panel_2', label: '主体-2 (Panel 2)', x: panelWidth + spacing * 2, y: spacing, w: panelWidth, h: panelHeight },
-                { id: 'panel_3', label: '主体-3 (Panel 3)', x: panelWidth * 2 + spacing * 3, y: spacing, w: panelWidth, h: panelHeight },
-                { id: 'brim_top', label: '帽舌面 (Brim Top)', x: spacing, y: panelHeight + spacing * 2, w: brimWidth, h: brimHeight },
-                { id: 'brim_bottom', label: '帽舌底 (Brim Bottom)', x: spacing, y: panelHeight + brimHeight + spacing * 3, w: brimWidth, h: brimHeight },
-            ];
-        }
+                // 计算缩放比例：将 SVG 坐标系统映射到实际画布
+                const scaleX = w / svgCanvasWidth;
+                const scaleY = h / svgCanvasHeight;
 
-        // 2. Mannequin / T-shirt / Hoodie (Proportional Sync with Scene.tsx)
-        if (category === 't-shirt' || category === 'hoodie' || config.shape === 'mannequin') {
-            return [
-                { id: 'front', label: '前片 (Front)', x: 0, y: 0, w: w * 0.35, h: h },
-                { id: 'back', label: '后片 (Back)', x: w * 0.35, y: 0, w: w * 0.35, h: h },
-                { id: 'sleeve_l', label: '左袖 (Sleeve L)', x: w * 0.70, y: 0, w: w * 0.30, h: h * 0.34 },
-                { id: 'sleeve_r', label: '右袖 (Sleeve R)', x: w * 0.70, y: h * 0.34, w: w * 0.30, h: h * 0.33 },
-                { id: 'collar', label: '领口 (Collar)', x: w * 0.70, y: h * 0.67, w: w * 0.30, h: h * 0.33 },
-            ];
-        }
+                const result: Region[] = [];
+                dynamicKeys.forEach((key) => {
+                    const pathData = dynamic[key];
+                    if (!pathData || !pathData.d) return;
 
-        // 3. Bottle / Can
-        if (config.shape === 'bottle' || config.shape === 'can') {
-            const spacing = 20;
-            return [{ id: 'label_main', label: 'Wrap Label', x: spacing, y: spacing, w: w - spacing * 2, h: h - spacing * 2 }];
-        }
-        // 4. Pouch
-        if (config.shape === 'pouch') {
-            const spacing = 30;
-            const halfW = (w - spacing * 3) / 2;
-            return [
-                { id: 'front', label: 'Front', x: spacing, y: spacing, w: halfW, h: h - spacing * 2 },
-                { id: ' back', label: 'Back', x: halfW + spacing * 2, y: spacing, w: halfW, h: h - spacing * 2 },
-            ];
-        }
-        // 5. Boxes
-        if (['box', 'mailer', 'tuck'].includes(config.shape)) {
-            const spacing = 15;
-            const side = (w - spacing * 5) / 4;
-            return [
-                { id: 'top', label: 'Top', x: side + spacing * 2, y: spacing, w: side, h: side },
-                { id: 'front', label: 'Front', x: side + spacing * 2, y: side + spacing * 2, w: side, h: side },
-                { id: 'bottom', label: 'Bottom', x: side + spacing * 2, y: side * 2 + spacing * 3, w: side, h: side },
-                { id: 'left', label: 'Left', x: spacing, y: side + spacing * 2, w: side, h: side },
-                { id: 'right', label: 'Right', x: side * 2 + spacing * 3, y: side + spacing * 2, w: side, h: side },
-                { id: 'back', label: 'Back', x: side * 3 + spacing * 4, y: side + spacing * 2, w: side, h: side },
-            ];
-        }
+                    // 解析路径的边界框，获取其在 SVG 坐标系统中的实际位置和尺寸
+                    const bounds = getPathBounds(pathData.d);
+                    
+                    // 将 SVG 坐标映射到画布坐标
+                    const regionX = bounds.x * scaleX;
+                    const regionY = bounds.y * scaleY;
+                    const regionW = bounds.width * scaleX;
+                    const regionH = bounds.height * scaleY;
 
-        // 6. Custom Model (Dynamic Regions from App / Config)
-        if (config.dynamicSVGPaths && Object.keys(config.dynamicSVGPaths).length > 0) {
-            const regions: Region[] = [];
-            const pathEntries = Object.entries(config.dynamicSVGPaths);
-
-            // Layout Strategy: Flow Layout
-            const PADDING = 40;
-            const TEXT_HEIGHT = 30; // Space for label
-            let currentX = PADDING;
-            let currentY = PADDING;
-            let rowHeight = 0;
-
-            pathEntries.forEach(([id, pathData]) => {
-                // Map UV space (0-1) to Pixel space.
-                const UV_SCALE = 1000;
-
-                // Calculate pixel dimensions
-                let segW = pathData.w * UV_SCALE;
-                let segH = pathData.h * UV_SCALE;
-
-                // Clamp max width to avoid massive pieces
-                const MAX_W = w - PADDING * 2;
-                if (segW > MAX_W) {
-                    const ratio = MAX_W / segW;
-                    segW = MAX_W;
-                    segH = segH * ratio;
-                }
-
-                // Check for new row
-                if (currentX + segW + PADDING > w) { // 'w' is outer scope var
-                    currentX = PADDING;
-                    currentY += rowHeight + PADDING + TEXT_HEIGHT;
-                    rowHeight = 0;
-                }
-
-                regions.push({
-                    id: id,
-                    label: id.replace(/_/g, ' '),
-                    x: currentX,
-                    y: currentY,
-                    w: segW,
-                    h: segH
+                    result.push({
+                        id: key,
+                        label: pathData.label || key,
+                        x: regionX,
+                        y: regionY,
+                        w: regionW,
+                        h: regionH
+                    });
                 });
-
-                // Update row metrics
-                rowHeight = Math.max(rowHeight, segH);
-                currentX += segW + PADDING;
-            });
-
-            return regions;
+                return result;
+            }
+        } else if (uvMode === 'custom') {
+            // 未来可以支持自定义 UV 模式（例如从 GLB 提取的 UV）
+            // 暂时回退到默认
         }
 
-        // 7. Custom Model (Dynamic Regions via internal calculation - Fallback)
-        if (config.shape === 'custom') {
-            return customPartsLayout.map(layout => {
-                const part = customParts[layout.partIndex];
-                const name = part ? part.name : `Part ${layout.partIndex}`;
-                return {
-                    id: name, // Using Mesh Name as ID
-                    label: name,
-                    x: layout.packedX,
-                    y: layout.packedY,
-                    w: layout.packedW,
-                    h: layout.packedH
-                };
-            });
-        }
-
-        return [];
-    }, [config.shape, config.category, config.dynamicSVGPaths, customUvIslands, customParts, customPartsLayout]);
+        // 默认：整个画布一个区域
+        return [{
+            id: 'canvas_root',
+            label: 'Canvas',
+            x: 0,
+            y: 0,
+            w: w,
+            h: h
+        }];
+    }, [config.dynamicSVGPaths, uvMode, getPathBounds]);
 
     const regions = useMemo(() => getRegions(canvasConfig.width, canvasConfig.height), [getRegions, canvasConfig]);
-
+    console.log('regions', regions);
     // Actions
     const fitToScreen = useCallback(() => {
         if (containerRef.current) {
@@ -598,98 +1266,6 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [isOpen, selectedLayerId]);
 
-    // UV Auto-Layout Algorithm (Bin Packing)
-    const computeUVLayout = (
-        parts: { name: string; uvs: Float32Array; boundaries: Float32Array }[],
-        canvasWidth: number,
-        canvasHeight: number
-    ): UVLayout[] => {
-        if (parts.length === 0) return [];
-
-        const layouts: UVLayout[] = [];
-        const PADDING = 20; // 部件之间的间距
-
-        // 1. 计算每个part的UV包围盒
-        interface PartBounds {
-            index: number;
-            minU: number;
-            maxU: number;
-            minV: number;
-            maxV: number;
-            width: number;  // UV空间的宽度 (0-1)
-            height: number; // UV空间的高度 (0-1)
-        }
-
-        const bounds: PartBounds[] = parts.map((part, index) => {
-            let minU = 1, maxU = 0, minV = 1, maxV = 0;
-            const uvs = part.uvs;
-
-            for (let i = 0; i < uvs.length; i += 2) {
-                const u = uvs[i];
-                const v = uvs[i + 1];
-                if (Number.isFinite(u) && Number.isFinite(v)) {
-                    minU = Math.min(minU, u);
-                    maxU = Math.max(maxU, u);
-                    minV = Math.min(minV, v);
-                    maxV = Math.max(maxV, v);
-                }
-            }
-
-            return {
-                index,
-                minU, maxU, minV, maxV,
-                width: maxU - minU,
-                height: maxV - minV
-            };
-        });
-
-        // 2. 按面积从大到小排序 (大的先放,提高装箱效率)
-        bounds.sort((a, b) => (b.width * b.height) - (a.width * a.height));
-
-        // 3. 简单行式装箱:从左到右,从上到下排列
-        let currentX = PADDING;
-        let currentY = PADDING;
-        let rowHeight = 0;
-        const maxWidth = canvasWidth - PADDING * 2;
-
-        bounds.forEach(bound => {
-            // 将UV尺寸转换为像素尺寸 (保持宽高比,缩放到合适大小)
-            // 假设我们让最大的部件占画布的约40%宽度
-            const scaleFactor = Math.min(
-                (canvasWidth * 0.35) / bound.width,
-                (canvasHeight * 0.35) / bound.height
-            );
-            const pixelW = Math.max(100, bound.width * scaleFactor);
-            const pixelH = Math.max(100, bound.height * scaleFactor);
-
-            // 检查是否需要换行
-            if (currentX + pixelW > maxWidth && currentX > PADDING) {
-                currentX = PADDING;
-                currentY += rowHeight + PADDING;
-                rowHeight = 0;
-            }
-
-            // 记录布局
-            layouts.push({
-                partIndex: bound.index,
-                originalMinU: bound.minU,
-                originalMaxU: bound.maxU,
-                originalMinV: bound.minV,
-                originalMaxV: bound.maxV,
-                packedX: currentX,
-                packedY: currentY,
-                packedW: pixelW,
-                packedH: pixelH
-            });
-
-            // 更新当前位置
-            currentX += pixelW + PADDING;
-            rowHeight = Math.max(rowHeight, pixelH);
-        });
-
-        return layouts;
-    };
-
     // Load Custom UVs
     useEffect(() => {
         if (config.shape === 'custom' && config.customModelUrl) {
@@ -699,6 +1275,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 const allUvs: Float32Array[] = [];
                 const parts: { name: string; uvs: Float32Array; boundaries: Float32Array; svgData?: any }[] = [];
                 const newDynamicPaths: Record<string, { d: string, w: number, h: number }> = {};
+                let targetMesh: THREE.Mesh | null = null;
 
                 // Helper to extract UVs
                 const getUVs = (mesh: THREE.Mesh) => {
@@ -719,6 +1296,41 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                         }
                     }
                     return uvData;
+                };
+
+                const buildUvWireframe = (
+                    uvAttr: THREE.BufferAttribute | THREE.InterleavedBufferAttribute,
+                    indexAttr: THREE.BufferAttribute | null
+                ) => {
+                    const segments: number[] = [];
+                    const edgeSet = new Set<string>();
+                    const PRE = 10000;
+                    const keyPoint = (u: number, v: number) => `${Math.round(u * PRE)}_${Math.round(v * PRE)}`;
+                    const keyEdge = (u1: number, v1: number, u2: number, v2: number) => {
+                        const k1 = keyPoint(u1, v1);
+                        const k2 = keyPoint(u2, v2);
+                        return k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+                    };
+                    const addEdge = (a: number, b: number) => {
+                        const u1 = uvAttr.getX(a);
+                        const v1 = uvAttr.getY(a);
+                        const u2 = uvAttr.getX(b);
+                        const v2 = uvAttr.getY(b);
+                        const key = keyEdge(u1, v1, u2, v2);
+                        if (edgeSet.has(key)) return;
+                        edgeSet.add(key);
+                        segments.push(u1, v1, u2, v2);
+                    };
+                    const count = indexAttr ? indexAttr.count : uvAttr.count;
+                    for (let i = 0; i < count; i += 3) {
+                        const a = indexAttr ? indexAttr.getX(i) : i;
+                        const b = indexAttr ? indexAttr.getX(i + 1) : i + 1;
+                        const c = indexAttr ? indexAttr.getX(i + 2) : i + 2;
+                        addEdge(a, b);
+                        addEdge(b, c);
+                        addEdge(c, a);
+                    }
+                    return new Float32Array(segments);
                 };
 
                 // Helper: Calculate Boundary Edges (edges used only once)
@@ -769,81 +1381,91 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                     return new Float32Array(boundarySegments);
                 };
 
-                // Traverse entire scene graph
                 gltf.scene.traverse((child) => {
                     if ((child as THREE.Mesh).isMesh) {
                         const mesh = child as THREE.Mesh;
-                        const uvData = getUVs(mesh);
-
-                        // Filter: 至少需要3个三角形
-                        if (uvData && uvData.length >= 18) {
-                            // 计算UV面积
-                            let minU = 1, maxU = 0, minV = 1, maxV = 0;
-                            for (let i = 0; i < uvData.length; i += 2) {
-                                const u = uvData[i];
-                                const v = uvData[i + 1];
-                                if (Number.isFinite(u) && Number.isFinite(v)) {
-                                    minU = Math.min(minU, u);
-                                    maxU = Math.max(maxU, u);
-                                    minV = Math.min(minV, v);
-                                    maxV = Math.max(maxV, v);
-                                }
-                            }
-
-                            const uvArea = (maxU - minU) * (maxV - minV);
-                            const vertexCount = uvData.length / 2;
-                            // 只保留UV面积 > 0.01 或顶点数 > 1000的部件
-                            const isSignificant = uvArea > 0.01 || vertexCount > 1000;
-
-                            if (isSignificant) {
-                                allUvs.push(uvData);
-                                if (mesh.name) {
-                                    // 1. Try to extract precise SVG Path
-                                    const svgInfo = extractSVGPathFromMesh(mesh);
-                                    let bounds: Float32Array | null = null;
-
-                                    if (svgInfo) {
-                                        // Use the extracted dimensions for layout calculation later
-                                        // Store valid path
-                                        newDynamicPaths[mesh.name] = {
-                                            d: svgInfo.d,
-                                            w: svgInfo.width, // UV space width
-                                            h: svgInfo.height // UV space height 
-                                        };
-                                        // We still need boundaries for... wait, we actually don't need 'getBoundaryEdges' anymore 
-                                        // if we have exact SVG paths. But let's keep it for compatibility or fallbacks.
-                                    }
-
-                                    // 2. Fallback / Legacy boundary check
-                                    const boundsArr = getBoundaryEdges(uvData);
-                                    if (boundsArr.length > 0 || svgInfo) {
-                                        parts.push({
-                                            name: mesh.name,
-                                            uvs: uvData,
-                                            boundaries: boundsArr, // Keep for now
-                                            svgData: svgInfo
-                                        });
-                                    }
-                                }
-                            }
+                        if (mesh.name === '贴图') {
+                            targetMesh = mesh;
                         }
                     }
                 });
 
-                // Auto-pack UV islands to avoid overlap
-                // We need to pass the "size" of each part to the packer. 
-                // If we have svgData, use its width/height. If not, calculate from min/max UV.
-
-                // Enhanced ComputeUVLayout Wrapper
-                const enhancedLayouts = computeUVLayout(parts.map(p => {
-                    if (p.svgData) {
-                        // Mock the structure expected by computeUVLayout (it calculates bounds internally from uvs)
-                        // Actually computeUVLayout takes { uvs } and calculates bounds itself. 
-                        // That is fine. UVs represent the same shape as SVG.
-                        return p;
+                const processMesh = (mesh: THREE.Mesh) => {
+                    const uvData = getUVs(mesh);
+                    if (!uvData || uvData.length < 18) return;
+                    let minU = 1, maxU = 0, minV = 1, maxV = 0;
+                    for (let i = 0; i < uvData.length; i += 2) {
+                        const u = uvData[i];
+                        const v = uvData[i + 1];
+                        if (Number.isFinite(u) && Number.isFinite(v)) {
+                            minU = Math.min(minU, u);
+                            maxU = Math.max(maxU, u);
+                            minV = Math.min(minV, v);
+                            maxV = Math.max(maxV, v);
+                        }
                     }
-                    return p;
-                }), canvasConfig.width, canvasConfig.height);
+                    const uvArea = (maxU - minU) * (maxV - minV);
+                    const vertexCount = uvData.length / 2;
+                    const isSignificant = uvArea > 0.01 || vertexCount > 1000;
+                    if (!isSignificant) return;
+                    allUvs.push(uvData);
+                    if (mesh.name) {
+                        const svgInfo = extractSVGPathFromMesh(mesh);
+                        if (svgInfo) {
+                            newDynamicPaths[mesh.name] = {
+                                d: svgInfo.d,
+                                w: svgInfo.width,
+                                h: svgInfo.height
+                            };
+                        }
+                        const boundsArr = getBoundaryEdges(uvData);
+                        if (boundsArr.length > 0 || svgInfo) {
+                            parts.push({
+                                name: mesh.name,
+                                uvs: uvData,
+                                boundaries: boundsArr,
+                                svgData: svgInfo
+                            });
+                        }
+                    }
+                };
+
+                if (targetMesh) {
+                    const uvAttr = targetMesh.geometry.getAttribute('uv');
+                    const positionAttr = targetMesh.geometry.getAttribute('position');
+                    const indexAttr = targetMesh.geometry.getIndex();
+                    if (uvAttr && positionAttr) {
+                        setUvMeshData({
+                            uvs: uvAttr.array as Float32Array,
+                            positions: positionAttr.array as Float32Array,
+                            indices: indexAttr ? (indexAttr.array as Uint32Array | Uint16Array | Uint8Array) : null
+                        });
+                        setUvWireframe(buildUvWireframe(uvAttr, indexAttr));
+                    } else {
+                        setUvMeshData(null);
+                        setUvWireframe(null);
+                    }
+                    processMesh(targetMesh);
+                } else {
+                    setUvMeshData(null);
+                    setUvWireframe(null);
+                    gltf.scene.traverse((child) => {
+                        if ((child as THREE.Mesh).isMesh) {
+                            const mesh = child as THREE.Mesh;
+                            processMesh(mesh);
+                        }
+                    });
+                }
+
+                // Traverse entire scene graph
+                if (parts.length === 0) {
+                    setIsLoadingUVs(false);
+                    return;
+                }
+
+                // Removed auto-packing logic since we now use a single canvas approach.
+                // We keep customParts state but layouts are no longer used for region generation.
+                const enhancedLayouts: UVLayout[] = [];
 
                 setCustomUVs(allUvs);
                 setCustomParts(parts);
@@ -854,11 +1476,80 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         }
     }, [config.customModelUrl, config.shape]);
 
+    // 加载初始图层数据
     useEffect(() => {
-        if (initialImage && layers.length === 0) {
+        if (initialLayers && initialLayers.length > 0 && layers.length === 0) {
+            // 恢复图层数据
+            const restoredLayers: Layer[] = [];
+            const restoredImages: UploadedImage[] = [];
+            const imageLayers: typeof initialLayers = [];
+            const nonImageLayers: typeof initialLayers = [];
+            
+            // 分离图片图层和非图片图层
+            initialLayers.forEach(layer => {
+                if (layer.type === 'image' && layer.src) {
+                    imageLayers.push(layer);
+                } else {
+                    nonImageLayers.push(layer);
+                }
+            });
+            
+            // 先添加非图片图层
+            if (nonImageLayers.length > 0) {
+                restoredLayers.push(...nonImageLayers as Layer[]);
+            }
+            
+            // 异步加载图片图层
+            if (imageLayers.length > 0) {
+                let loadedCount = 0;
+                imageLayers.forEach(layer => {
+                    const img = new Image();
+                    img.src = layer.src;
+                    img.onload = () => {
+                        const restoredLayer: Layer = {
+                            ...layer,
+                            imgElement: img,
+                        } as Layer;
+                        restoredLayers.push(restoredLayer);
+                        
+                        // 添加到已上传图片列表
+                        if (!restoredImages.find(img => img.src === layer.src)) {
+                            restoredImages.push({
+                                id: crypto.randomUUID(),
+                                src: layer.src,
+                                name: `图片 ${restoredImages.length + 1}`,
+                                createdAt: Date.now()
+                            });
+                        }
+                        
+                        loadedCount++;
+                        // 当所有图片图层加载完成后，更新状态
+                        if (loadedCount === imageLayers.length) {
+                            setLayers([...restoredLayers]);
+                            setUploadedImages(restoredImages);
+                        }
+                    };
+                    img.onerror = () => {
+                        // 如果图片加载失败，仍然添加图层（使用src作为fallback）
+                        restoredLayers.push(layer as Layer);
+                        loadedCount++;
+                        if (loadedCount === imageLayers.length) {
+                            setLayers([...restoredLayers]);
+                            setUploadedImages(restoredImages);
+                        }
+                    };
+                });
+            } else {
+                // 如果没有图片图层，直接设置
+                setLayers(restoredLayers);
+            }
+        } else if (initialImage && uploadedImages.length === 0 && layers.length === 0 && !initialLayers) {
+            // 兼容旧逻辑：如果有初始图片但没有图层数据，使用旧方式
+            const id = crypto.randomUUID();
+            setUploadedImages([{ id, src: initialImage, name: '初始图片', createdAt: Date.now() }]);
             addLayer(initialImage);
         }
-    }, [initialImage]);
+    }, [initialLayers, initialImage]);
 
     const addLayer = (src: string) => {
         const img = new Image();
@@ -875,6 +1566,49 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 height: img.height,
                 rotation: 0,
                 scale: Math.min(500 / img.width, 1),
+            };
+            setLayers(prev => [...prev, newLayer]);
+            setSelectedLayerId(newLayer.id);
+            setPreviewVersion(v => v + 1);
+        };
+    };
+
+    // 将SVG字符串转换为data URL，并设置明确的尺寸
+    const svgToDataUrl = (svg: string, width: number, height: number): string => {
+        // 确保SVG有明确的width和height属性
+        let svgWithSize = svg;
+        if (!svg.includes('width=') || !svg.includes('height=')) {
+            svgWithSize = svg.replace('<svg', `<svg width="${width}" height="${height}"`);
+        }
+        const blob = new Blob([svgWithSize], { type: 'image/svg+xml' });
+        return URL.createObjectURL(blob);
+    };
+
+    // 添加包装素材到画布
+    const handleAddAsset = (asset: PackagingAsset) => {
+        const dataUrl = svgToDataUrl(asset.svg, asset.width, asset.height);
+        const img = new Image();
+        // 设置明确的尺寸，确保SVG按预期大小渲染
+        img.width = asset.width;
+        img.height = asset.height;
+        img.src = dataUrl;
+        img.onload = () => {
+            // 使用asset定义的尺寸，而不是img的实际尺寸（SVG可能渲染很大）
+            // 计算合适的缩放比例，使素材大小适中（约100-150像素）
+            const targetSize = 120;
+            const scale = targetSize / Math.max(asset.width, asset.height);
+            
+            const newLayer: Layer = {
+                id: crypto.randomUUID(),
+                type: 'image',
+                src: dataUrl,
+                imgElement: img,
+                x: canvasConfig.width / 2,
+                y: canvasConfig.height / 2,
+                width: asset.width,
+                height: asset.height,
+                rotation: 0,
+                scale: scale,
             };
             setLayers(prev => [...prev, newLayer]);
             setSelectedLayerId(newLayer.id);
@@ -901,10 +1635,107 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         setPreviewVersion(v => v + 1);
     };
 
+    const addTextBlock = () => {
+        const textProps = {
+            fontSize: 24,
+            fontFamily: 'Arial',
+            color: '#000000',
+            fontWeight: 'normal' as const,
+            fontStyle: 'normal' as const,
+            textAlign: 'center' as const,
+            textDecoration: 'none' as const,
+        };
+        
+        // 计算文字的实际大小
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        let textWidth = 200;
+        let textHeight = 50;
+        
+        if (tempCtx) {
+            tempCtx.font = `${textProps.fontStyle} ${textProps.fontWeight} ${textProps.fontSize}px ${textProps.fontFamily}`;
+            const text = '文字';
+            const metrics = tempCtx.measureText(text);
+            textWidth = metrics.width;
+            textHeight = textProps.fontSize * 1.2;
+        }
+        
+        const newLayer: Layer = {
+            id: crypto.randomUUID(),
+            type: 'text',
+            src: '文字',
+            imgElement: null,
+            x: canvasConfig.width / 2,
+            y: canvasConfig.height / 2,
+            width: textWidth,
+            height: textHeight,
+            rotation: 0,
+            scale: 1,
+            textProps,
+        };
+        setLayers(prev => [...prev, newLayer]);
+        setSelectedLayerId(newLayer.id);
+        setPreviewVersion(v => v + 1);
+    };
+
     const updateColorLayer = (id: string, color: string) => {
         setLayers(prev => prev.map(l => l.id === id ? { ...l, src: color } : l));
         setPreviewVersion(v => v + 1);
-    }
+    };
+
+    const updateColorBlockLayer = (id: string, updates: { src?: string; width?: number; height?: number; rotation?: number; scale?: number }) => {
+        setLayers(prev => prev.map(l => {
+            if (l.id === id && l.type === 'color') {
+                return {
+                    ...l,
+                    ...updates,
+                };
+            }
+            return l;
+        }));
+        setPreviewVersion(v => v + 1);
+    };
+
+    const updateTextLayer = (id: string, updates: Partial<Layer['textProps']> & { src?: string }) => {
+        setLayers(prev => prev.map(l => {
+            if (l.id === id && l.type === 'text') {
+                const newTextProps = {
+                    ...l.textProps,
+                    ...updates,
+                };
+                const newSrc = updates.src !== undefined ? updates.src : l.src;
+                
+                // 计算文字的实际大小并更新图层尺寸
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                let newWidth = l.width;
+                let newHeight = l.height;
+                
+                if (tempCtx) {
+                    const fontWeight = newTextProps.fontWeight || 'normal';
+                    const fontStyle = newTextProps.fontStyle || 'normal';
+                    const fontSize = newTextProps.fontSize || 24;
+                    const fontFamily = newTextProps.fontFamily || 'Arial';
+                    tempCtx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                    
+                    const text = newSrc || '文字';
+                    const metrics = tempCtx.measureText(text);
+                    newWidth = metrics.width;
+                    newHeight = fontSize * 1.2;
+                }
+                
+                return {
+                    ...l,
+                    src: newSrc,
+                    width: newWidth,
+                    height: newHeight,
+                    textProps: newTextProps,
+                };
+            }
+            return l;
+        }));
+        setPreviewVersion(v => v + 1);
+    };
 
     // Math helpers...
     const screenToCanvas = (sx: number, sy: number) => {
@@ -926,18 +1757,81 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
     const isPointInRotatedRect = (px: number, py: number, layer: Layer) => {
         const p = rotatePoint(px, py, layer.x, layer.y, -layer.rotation);
-        const w = layer.width * layer.scale;
-        const h = layer.height * layer.scale;
+        let w = layer.width * layer.scale;
+        let h = layer.height * layer.scale;
+        
+        // 对于文字图层，根据文字实际大小计算尺寸
+        if (layer.type === 'text') {
+            const textProps = layer.textProps || {
+                fontSize: 24,
+                fontFamily: 'Arial',
+                fontWeight: 'normal',
+                fontStyle: 'normal',
+            };
+            
+            // 创建临时canvas来测量文字
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            if (tempCtx) {
+                const fontWeight = textProps.fontWeight || 'normal';
+                const fontStyle = textProps.fontStyle || 'normal';
+                const fontSize = textProps.fontSize || 24;
+                const fontFamily = textProps.fontFamily || 'Arial';
+                tempCtx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                
+                const text = layer.src || '文字';
+                const metrics = tempCtx.measureText(text);
+                const textWidth = metrics.width;
+                const textHeight = fontSize * 1.2;
+                
+                w = textWidth * layer.scale;
+                h = textHeight * layer.scale;
+            }
+        }
+        
         return p.x >= layer.x - w / 2 && p.x <= layer.x + w / 2 &&
             p.y >= layer.y - h / 2 && p.y <= layer.y + h / 2;
     };
 
     // --- Render Logic (Split into Content and UI) ---
 
-    // Helper: Check if a point is inside a region
+    // Helper: Check if a point is inside a region (using SVG path if available)
     const isPointInRegion = (x: number, y: number, region: Region): boolean => {
-        return x >= region.x && x <= region.x + region.w &&
-            y >= region.y && y <= region.y + region.h;
+        // 先检查是否在矩形边界框内
+        if (x < region.x || x > region.x + region.w || y < region.y || y > region.y + region.h) {
+            return false;
+        }
+
+        // 如果有对应的 SVG 路径，使用路径来精确检测
+        const pathData = config.dynamicSVGPaths?.[region.id];
+        if (pathData && pathData.d) {
+            try {
+                // 获取 SVG 画布的原始尺寸
+                const svgCanvasWidth = pathData.w || canvasConfig.width;
+                const svgCanvasHeight = pathData.h || canvasConfig.height;
+                
+                // 将画布坐标转换回 SVG 坐标
+                const scaleX = svgCanvasWidth / canvasConfig.width;
+                const scaleY = svgCanvasHeight / canvasConfig.height;
+                const svgX = x * scaleX;
+                const svgY = y * scaleY;
+                
+                // 使用 Canvas API 检测点是否在路径内
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = svgCanvasWidth;
+                tempCanvas.height = svgCanvasHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                if (tempCtx) {
+                    const path = new Path2D(pathData.d);
+                    return tempCtx.isPointInPath(path, svgX, svgY);
+                }
+            } catch (e) {
+                console.warn('Failed to check point in SVG path:', e);
+            }
+        }
+
+        // 回退到矩形检测
+        return true;
     };
 
     // Helper: Get region for a layer (which region does this layer belong to)
@@ -967,6 +1861,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         // Get category-specific SVG paths
         const category = config.category || 'custom';
         const categoryPaths = CATEGORY_SVG_PATHS[category] || REGION_SVG_PATHS;
+        // console.log(categoryPaths, '9999');
 
         // Render each region independently
         regions.forEach(region => {
@@ -977,6 +1872,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             const configDynamicPath = config.dynamicSVGPaths?.[region.id];
             const localDynamicPath = dynamicPaths[region.id];
             const staticPath = categoryPaths[region.id];
+            // console.log(staticPath, region.id);
             const isTshirtShape = config.shape === 'mannequin' || category === 't-shirt' || category === 'hoodie';
 
             let pathToUse = null;
@@ -989,15 +1885,33 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             }
 
             if (pathToUse) {
-                const scaleX = region.w / pathToUse.w;
-                const scaleY = region.h / pathToUse.h;
+                // 获取 SVG 画布的原始尺寸
+                const svgCanvasWidth = pathToUse.w || canvasConfig.width;
+                const svgCanvasHeight = pathToUse.h || canvasConfig.height;
+                
+                // SVG 路径的坐标是相对于 SVG 画布的
+                // 如果 SVG 画布尺寸和我们的画布尺寸相同，路径坐标可以直接使用
+                // 如果不同，需要缩放路径坐标到画布坐标
+                const scaleX = canvasConfig.width / svgCanvasWidth;
+                const scaleY = canvasConfig.height / svgCanvasHeight;
+                
+                // 创建路径并应用 clip（不 restore，保持 clip 状态用于后续图层绘制）
                 const p = new Path2D(pathToUse.d);
-                ctx.translate(region.x, region.y);
-                ctx.scale(scaleX, scaleY);
-                ctx.clip(p);
-                // Fill background in normalized space
-                ctx.fillStyle = faceColors[region.id] || config.color;
-                ctx.fillRect(0, 0, pathToUse.w, pathToUse.h);
+                
+                // 如果尺寸不同，需要缩放路径
+                if (scaleX !== 1 || scaleY !== 1) {
+                    ctx.scale(scaleX, scaleY);
+                    ctx.clip(p);
+                    // 填充背景（在缩放后的 SVG 坐标系中）
+                    ctx.fillStyle = faceColors[region.id] || config.color;
+                    ctx.fillRect(0, 0, svgCanvasWidth, svgCanvasHeight);
+                } else {
+                    // 尺寸相同，直接使用路径坐标
+                    ctx.clip(p);
+                    // 填充背景（在画布坐标系中）
+                    ctx.fillStyle = faceColors[region.id] || config.color;
+                    ctx.fillRect(0, 0, canvasConfig.width, canvasConfig.height);
+                }
             } else {
                 ctx.beginPath();
                 if (isTshirtShape || category === 'hat') {
@@ -1012,24 +1926,87 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             }
 
             // 2. Render Layers belonging to this region
+            // 注意：此时 clip 状态已经应用，transform 可能已经缩放（如果 pathToUse 存在且尺寸不同）
             layers.forEach(layer => {
                 const layerRegion = getLayerRegion(layer);
                 if (layerRegion && layerRegion.id === region.id) {
                     ctx.save();
-                    // Critical: if we used pathData above, the matrix is currently scaled/translated.
-                    // We need to either work in that space or reset to global.
-                    // To keep layer positioning intuitive (global canvas coords), we reset.
+                    
+                    // 图层坐标始终在画布坐标系中
+                    // 如果上面应用了缩放（scaleX, scaleY），需要将图层坐标转换到缩放后的空间
                     if (pathToUse) {
-                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        const svgCanvasWidth = pathToUse.w || canvasConfig.width;
+                        const svgCanvasHeight = pathToUse.h || canvasConfig.height;
+                        const scaleX = canvasConfig.width / svgCanvasWidth;
+                        const scaleY = canvasConfig.height / svgCanvasHeight;
+                        
+                        // 如果应用了缩放，图层坐标需要除以缩放比例
+                        // 因为当前 transform 已经包含了缩放
+                        if (scaleX !== 1 || scaleY !== 1) {
+                            // 当前 transform 已经是 scale(scaleX, scaleY)
+                            // 所以图层坐标需要除以缩放比例
+                            ctx.translate(layer.x / scaleX, layer.y / scaleY);
+                        } else {
+                            // 坐标系统相同，直接使用
+                            ctx.translate(layer.x, layer.y);
+                        }
+                    } else {
+                        // 没有路径，直接使用画布坐标
+                        ctx.translate(layer.x, layer.y);
                     }
-
-                    ctx.translate(layer.x, layer.y);
+                    
                     ctx.rotate((layer.rotation * Math.PI) / 180);
                     ctx.scale(layer.scale, layer.scale);
 
                     if (layer.type === 'color') {
                         ctx.fillStyle = layer.src;
                         ctx.fillRect(-layer.width / 2, -layer.height / 2, layer.width, layer.height);
+                    } else if (layer.type === 'text') {
+                        const textProps = layer.textProps || { 
+                            fontSize: 24, 
+                            fontFamily: 'Arial', 
+                            color: '#000000',
+                            fontWeight: 'normal',
+                            fontStyle: 'normal',
+                            textAlign: 'center',
+                            textDecoration: 'none',
+                        };
+                        ctx.fillStyle = textProps.color || '#000000';
+                        ctx.strokeStyle = textProps.color || '#000000';
+                        
+                        // 构建字体字符串
+                        const fontWeight = textProps.fontWeight || 'normal';
+                        const fontStyle = textProps.fontStyle || 'normal';
+                        const fontSize = textProps.fontSize || 24;
+                        const fontFamily = textProps.fontFamily || 'Arial';
+                        ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                        
+                        // 设置文本对齐
+                        const textAlign = textProps.textAlign || 'center';
+                        ctx.textAlign = textAlign === 'left' ? 'left' : textAlign === 'right' ? 'right' : 'center';
+                        ctx.textBaseline = 'middle';
+                        
+                        const text = layer.src || '文字';
+                        const x = textAlign === 'left' ? -layer.width / 2 : textAlign === 'right' ? layer.width / 2 : 0;
+                        
+                        // 绘制文本
+                        if (textProps.textDecoration === 'underline') {
+                            ctx.fillText(text, x, 0);
+                            const metrics = ctx.measureText(text);
+                            ctx.beginPath();
+                            ctx.moveTo(x - (textAlign === 'center' ? metrics.width / 2 : textAlign === 'right' ? metrics.width : 0), fontSize / 3);
+                            ctx.lineTo(x + (textAlign === 'center' ? metrics.width / 2 : textAlign === 'left' ? metrics.width : 0), fontSize / 3);
+                            ctx.stroke();
+                        } else if (textProps.textDecoration === 'line-through') {
+                            ctx.fillText(text, x, 0);
+                            const metrics = ctx.measureText(text);
+                            ctx.beginPath();
+                            ctx.moveTo(x - (textAlign === 'center' ? metrics.width / 2 : textAlign === 'right' ? metrics.width : 0), 0);
+                            ctx.lineTo(x + (textAlign === 'center' ? metrics.width / 2 : textAlign === 'left' ? metrics.width : 0), 0);
+                            ctx.stroke();
+                        } else {
+                            ctx.fillText(text, x, 0);
+                        }
                     } else if (layer.imgElement) {
                         ctx.drawImage(layer.imgElement, -layer.width / 2, -layer.height / 2);
                     }
@@ -1052,6 +2029,52 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 if (layer.type === 'color') {
                     ctx.fillStyle = layer.src;
                     ctx.fillRect(-layer.width / 2, -layer.height / 2, layer.width, layer.height);
+                } else if (layer.type === 'text') {
+                    const textProps = layer.textProps || { 
+                        fontSize: 24, 
+                        fontFamily: 'Arial', 
+                        color: '#000000',
+                        fontWeight: 'normal',
+                        fontStyle: 'normal',
+                        textAlign: 'center',
+                        textDecoration: 'none',
+                    };
+                    ctx.fillStyle = textProps.color || '#000000';
+                    ctx.strokeStyle = textProps.color || '#000000';
+                    
+                    // 构建字体字符串
+                    const fontWeight = textProps.fontWeight || 'normal';
+                    const fontStyle = textProps.fontStyle || 'normal';
+                    const fontSize = textProps.fontSize || 24;
+                    const fontFamily = textProps.fontFamily || 'Arial';
+                    ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                    
+                    // 设置文本对齐
+                    const textAlign = textProps.textAlign || 'center';
+                    ctx.textAlign = textAlign === 'left' ? 'left' : textAlign === 'right' ? 'right' : 'center';
+                    ctx.textBaseline = 'middle';
+                    
+                    const text = layer.src || '文字';
+                    const x = textAlign === 'left' ? -layer.width / 2 : textAlign === 'right' ? layer.width / 2 : 0;
+                    
+                    // 绘制文本
+                    if (textProps.textDecoration === 'underline') {
+                        ctx.fillText(text, x, 0);
+                        const metrics = ctx.measureText(text);
+                        ctx.beginPath();
+                        ctx.moveTo(x - (textAlign === 'center' ? metrics.width / 2 : textAlign === 'right' ? metrics.width : 0), fontSize / 3);
+                        ctx.lineTo(x + (textAlign === 'center' ? metrics.width / 2 : textAlign === 'left' ? metrics.width : 0), fontSize / 3);
+                        ctx.stroke();
+                    } else if (textProps.textDecoration === 'line-through') {
+                        ctx.fillText(text, x, 0);
+                        const metrics = ctx.measureText(text);
+                        ctx.beginPath();
+                        ctx.moveTo(x - (textAlign === 'center' ? metrics.width / 2 : textAlign === 'right' ? metrics.width : 0), 0);
+                        ctx.lineTo(x + (textAlign === 'center' ? metrics.width / 2 : textAlign === 'left' ? metrics.width : 0), 0);
+                        ctx.stroke();
+                    } else {
+                        ctx.fillText(text, x, 0);
+                    }
                 } else if (layer.imgElement) {
                     ctx.drawImage(layer.imgElement, -layer.width / 2, -layer.height / 2);
                 }
@@ -1070,6 +2093,25 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        // 只在 custom UV 模式下显示从 GLB 提取的 UV wireframe
+        // SVG 模式（database）使用 SVG 路径，不需要显示 GLB 的 UV 网格
+        if (uvMode === 'custom' && uvWireframe) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.lineWidth = 1 / view.scale;
+            ctx.beginPath();
+            for (let i = 0; i < uvWireframe.length; i += 4) {
+                const x1 = uvWireframe[i] * canvasConfig.width;
+                const y1 = (1 - uvWireframe[i + 1]) * canvasConfig.height;
+                const x2 = uvWireframe[i + 2] * canvasConfig.width;
+                const y2 = (1 - uvWireframe[i + 3]) * canvasConfig.height;
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+
         // Guides (Dashed Lines)
         ctx.save();
         ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
@@ -1087,31 +2129,74 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         if (selectedLayerId) {
             const layer = layers.find(l => l.id === selectedLayerId);
             if (layer) {
-                const w = layer.width * layer.scale;
-                const h = layer.height * layer.scale;
+                let w = layer.width * layer.scale;
+                let h = layer.height * layer.scale;
+                
+                // 对于文字图层，根据文字实际大小计算选择框尺寸
+                if (layer.type === 'text') {
+                    const textProps = layer.textProps || {
+                        fontSize: 24,
+                        fontFamily: 'Arial',
+                        fontWeight: 'normal',
+                        fontStyle: 'normal',
+                    };
+                    
+                    // 设置字体以测量文字
+                    const fontWeight = textProps.fontWeight || 'normal';
+                    const fontStyle = textProps.fontStyle || 'normal';
+                    const fontSize = textProps.fontSize || 24;
+                    const fontFamily = textProps.fontFamily || 'Arial';
+                    ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                    
+                    // 测量文字实际宽度和高度
+                    const text = layer.src || '文字';
+                    const metrics = ctx.measureText(text);
+                    const textWidth = metrics.width;
+                    const textHeight = fontSize * 1.2; // 估算高度，通常为字体大小的1.2倍
+                    
+                    // 更新选择框尺寸
+                    w = textWidth * layer.scale;
+                    h = textHeight * layer.scale;
+                }
+                
                 ctx.save();
                 ctx.translate(layer.x, layer.y);
                 ctx.rotate((layer.rotation * Math.PI) / 180);
 
+                // 绘制选择框
                 ctx.strokeStyle = '#3b82f6';
                 ctx.lineWidth = 1.5 / view.scale;
-                ctx.strokeRect(-w / 2, -h / 2, w, h);
+                const rectX = -w / 2;
+                const rectY = -h / 2;
+                ctx.strokeRect(rectX, rectY, w, h);
 
-                const handleRadius = 5 / view.scale;
+                const handleRadius = 6 / view.scale;
                 const rotHandleDist = 30 / view.scale;
                 ctx.fillStyle = '#ffffff';
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 1.5 / view.scale;
 
                 const drawHandle = (x: number, y: number) => {
+                    // 绘制控制点，确保在角上
                     ctx.beginPath();
                     ctx.arc(x, y, handleRadius, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.stroke();
                 };
 
-                drawHandle(-w / 2, -h / 2); drawHandle(w / 2, -h / 2);
-                drawHandle(-w / 2, h / 2); drawHandle(w / 2, h / 2);
-                ctx.beginPath(); ctx.moveTo(0, -h / 2); ctx.lineTo(0, -h / 2 - rotHandleDist); ctx.stroke();
-                drawHandle(0, -h / 2 - rotHandleDist);
+                // 四个角的控制点 - 确保在最外层四个角
+                // 控制点中心直接位于矩形的四个角上
+                drawHandle(rectX, rectY);           // 左上角
+                drawHandle(rectX + w, rectY);       // 右上角
+                drawHandle(rectX, rectY + h);       // 左下角
+                drawHandle(rectX + w, rectY + h);   // 右下角
+                
+                // 旋转控制点（在顶部中心上方）
+                ctx.beginPath(); 
+                ctx.moveTo(rectX + w / 2, rectY); 
+                ctx.lineTo(rectX + w / 2, rectY - rotHandleDist); 
+                ctx.stroke();
+                drawHandle(rectX + w / 2, rectY - rotHandleDist);
 
                 ctx.restore();
             }
@@ -1119,7 +2204,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
         ctx.restore();
 
-    }, [layers, selectedLayerId, config.shape, customUVs, customParts, view.scale, canvasConfig, regions]);
+    }, [layers, selectedLayerId, config.shape, customUVs, customParts, uvWireframe, view.scale, canvasConfig, regions, uvMode]);
 
     // Trigger Renders
     useEffect(() => {
@@ -1136,8 +2221,38 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         if (selectedLayerId) {
             const layer = layers.find(l => l.id === selectedLayerId);
             if (layer) {
-                const w = layer.width * layer.scale;
-                const h = layer.height * layer.scale;
+                let w = layer.width * layer.scale;
+                let h = layer.height * layer.scale;
+                
+                // 对于文字图层，根据文字实际大小计算尺寸
+                if (layer.type === 'text') {
+                    const textProps = layer.textProps || {
+                        fontSize: 24,
+                        fontFamily: 'Arial',
+                        fontWeight: 'normal',
+                        fontStyle: 'normal',
+                    };
+                    
+                    // 创建临时canvas来测量文字
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    if (tempCtx) {
+                        const fontWeight = textProps.fontWeight || 'normal';
+                        const fontStyle = textProps.fontStyle || 'normal';
+                        const fontSize = textProps.fontSize || 24;
+                        const fontFamily = textProps.fontFamily || 'Arial';
+                        tempCtx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                        
+                        const text = layer.src || '文字';
+                        const metrics = tempCtx.measureText(text);
+                        const textWidth = metrics.width;
+                        const textHeight = fontSize * 1.2;
+                        
+                        w = textWidth * layer.scale;
+                        h = textHeight * layer.scale;
+                    }
+                }
+                
                 const rotRad = (layer.rotation * Math.PI) / 180;
                 const checkHandle = (lx: number, ly: number) => {
                     const gx = layer.x + lx * Math.cos(rotRad) - ly * Math.sin(rotRad);
@@ -1145,11 +2260,14 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                     return Math.hypot(canvasPt.x - gx, canvasPt.y - gy) < (15 / view.scale);
                 };
                 const rotDist = 30 / view.scale;
-                if (checkHandle(0, -h / 2 - rotDist)) return { type: 'rotate', layer };
-                if (checkHandle(w / 2, h / 2)) return { type: 'scale_br', layer };
-                if (checkHandle(-w / 2, -h / 2)) return { type: 'scale_tl', layer };
-                if (checkHandle(w / 2, -h / 2)) return { type: 'scale_tr', layer };
-                if (checkHandle(-w / 2, h / 2)) return { type: 'scale_bl', layer };
+                const halfW = w / 2;
+                const halfH = h / 2;
+                // 使用与绘制相同的角坐标进行检测（控制点中心在角上）
+                if (checkHandle(0, -halfH - rotDist)) return { type: 'rotate', layer };
+                if (checkHandle(halfW, halfH)) return { type: 'scale_br', layer };      // 右下角
+                if (checkHandle(-halfW, -halfH)) return { type: 'scale_tl', layer };     // 左上角
+                if (checkHandle(halfW, -halfH)) return { type: 'scale_tr', layer };      // 右上角
+                if (checkHandle(-halfW, halfH)) return { type: 'scale_bl', layer };       // 左下角
             }
         }
         const labelPaddingX = 20 / view.scale;
@@ -1166,9 +2284,9 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 return { type: 'body', layer: layers[i] };
             }
         }
+        // 使用改进的 isPointInRegion 函数检测（包含 SVG 路径检测）
         for (const region of regions) {
-            if (canvasPt.x >= region.x && canvasPt.x <= region.x + region.w &&
-                canvasPt.y >= region.y && canvasPt.y <= region.y + region.h) {
+            if (isPointInRegion(canvasPt.x, canvasPt.y, region)) {
                 return { type: 'region', region };
             }
         }
@@ -1219,6 +2337,32 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 if (hit.type === 'body') {
                     setSelectedLayerId(hit.layer.id);
                     setActiveFaceId(null);
+                    setShowColorButton(null); // 关闭颜色按钮
+                    setColorPickerPos(null); // 关闭颜色选择器
+                    // 如果是文字图层，显示编辑工具栏
+                    if (hit.layer.type === 'text' && containerRef.current) {
+                        const rect = containerRef.current.getBoundingClientRect();
+                        const canvasX = hit.layer.x * view.scale + view.x;
+                        const canvasY = hit.layer.y * view.scale + view.y;
+                        setTextEditorPos({
+                            x: rect.left + canvasX + 20,
+                            y: rect.top + canvasY - 200
+                        });
+                        setColorBlockEditorPos(null);
+                    } else if (hit.layer.type === 'color' && containerRef.current) {
+                        // 如果是色块图层，显示编辑工具栏
+                        const rect = containerRef.current.getBoundingClientRect();
+                        const canvasX = hit.layer.x * view.scale + view.x;
+                        const canvasY = hit.layer.y * view.scale + view.y;
+                        setColorBlockEditorPos({
+                            x: rect.left + canvasX + 20,
+                            y: rect.top + canvasY - 200
+                        });
+                        setTextEditorPos(null);
+                    } else {
+                        setTextEditorPos(null);
+                        setColorBlockEditorPos(null);
+                    }
                     interactionRef.current = {
                         mode: 'move_layer',
                         startMouse: { x: e.clientX, y: e.clientY },
@@ -1229,17 +2373,32 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 }
                 if (hit.type === 'region') {
                     setSelectedLayerId(null);
-                    setActiveFaceId(hit.region.id);
+                    setActiveFaceId(null); // 先不激活，等点击颜色按钮后再激活
                     const rect = containerRef.current!.getBoundingClientRect();
-                    setColorPickerPos({
-                        x: e.clientX - rect.left + 20,
-                        y: e.clientY - rect.top - 50
+                    // 计算region顶部中心位置（在画布坐标系中）
+                    const regionTopX = hit.region.x + hit.region.w / 2;
+                    const regionTopY = hit.region.y;
+                    // 转换为屏幕坐标
+                    const screenX = rect.left + regionTopX * view.scale + view.x;
+                    const screenY = rect.top + regionTopY * view.scale + view.y;
+                    // 显示颜色按钮，始终在region顶部
+                    setShowColorButton({
+                        regionId: hit.region.id,
+                        position: {
+                            x: screenX - rect.left - 40, // 按钮宽度的一半，使其居中
+                            y: screenY - rect.top - 50
+                        }
                     });
+                    setColorPickerPos(null); // 清除颜色选择器位置
                     return;
                 }
             }
             setSelectedLayerId(null);
             setActiveFaceId(null);
+            setShowColorButton(null); // 关闭颜色按钮
+            setColorPickerPos(null); // 关闭颜色选择器
+            setTextEditorPos(null); // 关闭文字编辑工具栏
+            setColorBlockEditorPos(null); // 关闭色块编辑工具栏
             interactionRef.current = { mode: 'pan', startMouse: { x: e.clientX, y: e.clientY }, startView: view, startLayer: null };
             setCursorStyle('grabbing');
         }
@@ -1310,69 +2469,456 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
     };
 
     const handleSave = () => {
-        // Since canvasRef now ONLY has content (no guides), we can just save it directly!
         if (canvasRef.current) {
-            onSave(canvasRef.current.toDataURL('image/png'));
+            // 保存画布为图片（用于预览和3D渲染）
+            const imageUrl = canvasRef.current.toDataURL('image/png');
+            // 同时保存图层数据（用于后续编辑）
+            // 清理imgElement，因为不能序列化
+            const layersToSave = layers.map(layer => ({
+                ...layer,
+                imgElement: null, // 移除不能序列化的imgElement
+            }));
+            onSave(imageUrl, layersToSave);
             onClose();
         }
     };
 
     const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files?.[0]) {
+        const file = e.target.files?.[0];
+        if (file) {
             const reader = new FileReader();
-            reader.onload = ev => { if (ev.target?.result) addLayer(ev.target.result as string); };
-            reader.readAsDataURL(e.target.files[0]);
+            reader.onload = ev => {
+                if (ev.target?.result) {
+                    const src = ev.target.result as string;
+                    const id = crypto.randomUUID();
+                    setUploadedImages(prev => [
+                        { id, src, name: file.name, createdAt: Date.now() },
+                        ...prev,
+                    ]);
+                    addLayer(src);
+                }
+            };
+            reader.readAsDataURL(file);
         }
+    };
+
+    const handleAddImageToCanvas = (image: UploadedImage) => {
+        addLayer(image.src);
+    };
+
+    const handleDeleteUploadedImage = (imageId: string) => {
+        const image = uploadedImages.find(img => img.id === imageId);
+        setUploadedImages(prev => prev.filter(img => img.id !== imageId));
+        if (image) {
+            setLayers(prev => prev.filter(l => !(l.type === 'image' && l.src === image.src)));
+            if (selectedLayerId && !layers.find(l => l.id === selectedLayerId)) {
+                setSelectedLayerId(null);
+            }
+            setPreviewVersion(v => v + 1);
+        }
+    };
+
+    const handleReorderLayers = (fromId: string, toId: string, insertPosition: 'above' | 'below' = 'below') => {
+        setLayers(prev => {
+            const fromIndex = prev.findIndex(l => l.id === fromId);
+            const toIndex = prev.findIndex(l => l.id === toId);
+            if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return prev;
+            
+            const next = [...prev];
+            const [moved] = next.splice(fromIndex, 1);
+            
+            // 由于图层列表是反向显示的，需要调整插入逻辑
+            // 在UI中，"above"表示在上方（视觉上），但在数组中实际是更小的索引
+            // "below"表示在下方（视觉上），但在数组中实际是更大的索引
+            let targetIndex = toIndex;
+            if (fromIndex < toIndex) {
+                // 从前面移到后面
+                if (insertPosition === 'above') {
+                    targetIndex = toIndex; // 插入到目标位置之前
+                } else {
+                    targetIndex = toIndex + 1; // 插入到目标位置之后
+                }
+            } else {
+                // 从后面移到前面
+                if (insertPosition === 'above') {
+                    targetIndex = toIndex; // 插入到目标位置之前
+                } else {
+                    targetIndex = toIndex + 1; // 插入到目标位置之后
+                }
+            }
+            
+            // 如果目标索引超出范围，调整到末尾
+            if (targetIndex > next.length) {
+                targetIndex = next.length;
+            }
+            
+            next.splice(targetIndex, 0, moved);
+            return next;
+        });
+        setPreviewVersion(v => v + 1);
     };
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 z-[100] flex bg-[#f3f4f6]">
-            {/* 1. Sidebar - Layers */}
-            <div className="w-64 bg-white border-r border-gray-200 flex flex-col z-20 shadow-sm">
-                <div className="p-4 border-b border-gray-100">
-                    <h2 className="font-bold text-gray-800 flex items-center gap-2 mb-4"><Layers size={16} /> 图层管理</h2>
-                    <div className="flex gap-2">
-                        <label className="flex-1 py-2 px-3 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-2 text-xs font-medium shadow-sm" title="Add Image">
-                            <Upload size={14} /><span>图片</span>
-                            <input type="file" className="hidden" accept="image/*" onChange={handleUpload} />
-                        </label>
-                        <button onClick={addColorBlock} className="flex-1 py-2 px-3 bg-white border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-600 rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-2 text-xs font-medium shadow-sm" title="Add Color Block">
-                            <Square size={14} fill="currentColor" className="text-gray-400" /><span>色块</span>
-                        </button>
-                    </div>
+            {/* 1. Sidebar - Upload & Layers */}
+            <div className="flex bg-white border-r border-gray-200 z-20 shadow-sm">
+                {/* 左侧一级菜单导航栏 */}
+                <div className="w-16 bg-white border-r border-gray-100 flex flex-col py-4">
+                    <button
+                        onClick={() => setActivePanel('upload')}
+                        className={`flex flex-col items-center justify-center gap-1 py-3 px-2 transition-colors relative ${
+                            activePanel === 'upload'
+                                ? 'bg-gray-100 text-black'
+                                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                        }`}
+                        title={t('uploadImage')}
+                    >
+                        {activePanel === 'upload' && (
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-black"></div>
+                        )}
+                        <Upload size={20} />
+                        <span className="text-[10px] font-medium">{t('uploadImage')}</span>
+                    </button>
+                    <button
+                        onClick={() => setActivePanel('layers')}
+                        className={`flex flex-col items-center justify-center gap-1 py-3 px-2 transition-colors relative ${
+                            activePanel === 'layers'
+                                ? 'bg-gray-100 text-black'
+                                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                        }`}
+                        title={t('layerManagement')}
+                    >
+                        {activePanel === 'layers' && (
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-black"></div>
+                        )}
+                        <Layers size={20} />
+                        <span className="text-[10px] font-medium">{t('layerManagement')}</span>
+                    </button>
+                    <button
+                        onClick={() => setActivePanel('assets')}
+                        className={`flex flex-col items-center justify-center gap-1 py-3 px-2 transition-colors relative ${
+                            activePanel === 'assets'
+                                ? 'bg-gray-100 text-black'
+                                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                        }`}
+                        title={t('packagingAssets')}
+                    >
+                        {activePanel === 'assets' && (
+                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-black"></div>
+                        )}
+                        <Package size={20} />
+                        <span className="text-[10px] font-medium">{t('packagingAssets')}</span>
+                    </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                    {layers.length === 0 ? (
-                        <div className="text-center text-gray-400 text-xs py-10 flex flex-col items-center"><ImageIcon size={32} className="mb-2 opacity-50" /><p>暂无图层</p><p>添加图片或色块开始设计</p></div>
-                    ) : (
-                        [...layers].reverse().map((layer, index) => (
-                            <div key={layer.id} onClick={() => setSelectedLayerId(layer.id)} className={`group flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-all ${selectedLayerId === layer.id ? 'bg-brand-50 border-brand-200 shadow-sm' : 'bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50'}`}>
-                                <div className="cursor-grab text-gray-300 hover:text-gray-500"><GripVertical size={14} /></div>
-                                <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden border border-gray-200 shrink-0 relative">
-                                    {layer.type === 'color' ? (
-                                        <><div className="w-full h-full" style={{ backgroundColor: layer.src }}></div>
-                                            <input type="color" value={layer.src} onChange={(e) => updateColorLayer(layer.id, e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" /></>
-                                    ) : (
-                                        <div className="w-full h-full bg-contain bg-center bg-no-repeat" style={{ backgroundImage: `url(${layer.src})` }} />
+                {/* 右侧内容区域 */}
+                <div className="flex-1 w-64 flex flex-col">
+                    <div className="p-4 border-b border-gray-100">
+                        <h2 className="font-bold text-gray-800 text-sm">
+                            {activePanel === 'upload' ? t('uploadImage') : activePanel === 'layers' ? t('layerManagement') : t('packagingAssets')}
+                        </h2>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                    {activePanel === 'upload' && (
+                        <div className="space-y-3">
+                            <label className="w-full py-3 px-3 bg-white border border-gray-200 hover:border-black hover:bg-gray-50 text-gray-600 rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-2 text-xs font-medium shadow-sm">
+                                <Upload size={14} />
+                                <span>{t('clickToUpload')}</span>
+                                <input type="file" className="hidden" accept="image/*" onChange={handleUpload} />
+                            </label>
+                            
+                            {/* 添加色块按钮 */}
+                            <button
+                                onClick={addColorBlock}
+                                className="w-full py-2.5 px-3 bg-white border border-gray-200 hover:border-black hover:bg-gray-50 text-gray-600 rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-2 text-xs font-medium shadow-sm"
+                                title={t('addColorBlock')}
+                            >
+                                <Square size={14} fill="currentColor" className="text-gray-400" />
+                                <span>{t('addColorBlock')}</span>
+                            </button>
+
+                            {/* 新增文字按钮 */}
+                            <button
+                                onClick={addTextBlock}
+                                className="w-full py-2.5 px-3 bg-white border border-gray-200 hover:border-black hover:bg-gray-50 text-gray-600 rounded-lg cursor-pointer transition-colors flex items-center justify-center gap-2 text-xs font-medium shadow-sm"
+                                title={t('addText')}
+                            >
+                                <Type size={14} />
+                                <span>{t('addText')}</span>
+                            </button>
+                            {uploadedImages.length === 0 ? (
+                                <div className="text-center text-gray-400 text-xs py-10 flex flex-col items-center">
+                                    <ImageIcon size={32} className="mb-2 opacity-50" />
+                                    <p>{t('noUploadedImages')}</p>
+                                    <p>{t('uploadToUse')}</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 gap-2">
+                                    {uploadedImages.map(image => (
+                                        <div key={image.id} className="group border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm hover:border-brand-300 transition-all flex flex-col">
+                                            <div
+                                                className="relative w-full pt-[70%] bg-gray-50"
+                                                style={{ backgroundImage: `url(${image.src})`, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }}
+                                            />
+                                            <div className="px-2 py-1.5 flex items-center justify-between gap-1">
+                                                <button
+                                                    onClick={() => handleAddImageToCanvas(image)}
+                                                    className="flex-1 text-[11px] text-black hover:text-gray-800 hover:bg-gray-50 px-2 py-1 rounded-md font-medium transition-colors"
+                                                >
+                                                    {language === 'zh' ? '添加到画布' : 'Add to Canvas'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteUploadedImage(image.id)}
+                                                    className="text-[11px] text-gray-400 hover:text-red-500 px-1 py-1 rounded-md transition-colors"
+                                                    title={t('delete')}
+                                                >
+                                                    {t('delete')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activePanel === 'assets' && (
+                        <div className="space-y-2">
+                            <div className="grid grid-cols-2 gap-2">
+                                {PACKAGING_ASSETS.map(asset => (
+                                    <button
+                                        key={asset.id}
+                                        onClick={() => handleAddAsset(asset)}
+                                        className="group border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm hover:border-brand-300 hover:shadow-md transition-all flex flex-col items-center justify-center p-3 aspect-square"
+                                        title={asset.name}
+                                    >
+                                        <div
+                                            className="w-full h-full flex items-center justify-center"
+                                            dangerouslySetInnerHTML={{ __html: asset.svg }}
+                                        />
+                                        <span className="text-[10px] text-gray-600 mt-1 font-medium">{asset.name}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {activePanel === 'layers' && (
+                        <div className="space-y-2">
+                            {layers.length === 0 ? (
+                                <div className="text-center text-gray-400 text-xs py-10 flex flex-col items-center">
+                                    <ImageIcon size={32} className="mb-2 opacity-50" />
+                                    <p>暂无图层</p>
+                                    <p>先在“上传”中添加图片</p>
+                                </div>
+                            ) : (
+                                [...layers].reverse().map((layer, index) => {
+                                    const isDragging = draggingLayerIdRef.current === layer.id;
+                                    const isDragOver = dragOverLayerId === layer.id;
+                                    const showInsertAbove = isDragOver && insertPosition === 'above';
+                                    const showInsertBelow = isDragOver && insertPosition === 'below';
+                                    
+                                    return (
+                                    <div key={layer.id} className="relative">
+                                        {/* 插入位置指示线 - 上方 */}
+                                        {showInsertAbove && !isDragging && (
+                                            <div className="absolute -top-1 left-0 right-0 h-0.5 bg-black rounded-full z-10 shadow-sm">
+                                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-black rounded-full"></div>
+                                            </div>
+                                        )}
+                                        
+                                        <div
+                                            draggable
+                                            onDragStart={(e) => { 
+                                                draggingLayerIdRef.current = layer.id;
+                                                setDragOverLayerId(null);
+                                                setInsertPosition(null);
+                                                // 设置拖拽预览
+                                                if (e.dataTransfer) {
+                                                    e.dataTransfer.effectAllowed = 'move';
+                                                    e.dataTransfer.setDragImage(e.currentTarget.cloneNode(true) as Element, 0, 0);
+                                                }
+                                            }}
+                                            onDragOver={(e) => {
+                                                e.preventDefault();
+                                                if (draggingLayerIdRef.current && draggingLayerIdRef.current !== layer.id) {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    const mouseY = e.clientY;
+                                                    const elementCenterY = rect.top + rect.height / 2;
+                                                    
+                                                    // 判断鼠标在元素的上半部分还是下半部分
+                                                    if (mouseY < elementCenterY) {
+                                                        setDragOverLayerId(layer.id);
+                                                        setInsertPosition('above');
+                                                    } else {
+                                                        setDragOverLayerId(layer.id);
+                                                        setInsertPosition('below');
+                                                    }
+                                                }
+                                            }}
+                                            onDragLeave={(e) => {
+                                                // 只有当鼠标真正离开元素时才清除状态
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                const mouseY = e.clientY;
+                                                if (mouseY < rect.top || mouseY > rect.bottom) {
+                                                    setDragOverLayerId(null);
+                                                    setInsertPosition(null);
+                                                }
+                                            }}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                if (draggingLayerIdRef.current && draggingLayerIdRef.current !== layer.id && insertPosition) {
+                                                    handleReorderLayers(draggingLayerIdRef.current, layer.id, insertPosition);
+                                                }
+                                                draggingLayerIdRef.current = null;
+                                                setDragOverLayerId(null);
+                                                setInsertPosition(null);
+                                            }}
+                                            onDragEnd={() => {
+                                                draggingLayerIdRef.current = null;
+                                                setDragOverLayerId(null);
+                                                setInsertPosition(null);
+                                            }}
+                                        onClick={() => {
+                                            setSelectedLayerId(layer.id);
+                                            if (containerRef.current) {
+                                                const rect = containerRef.current.getBoundingClientRect();
+                                                const canvasX = layer.x * view.scale + view.x;
+                                                const canvasY = layer.y * view.scale + view.y;
+                                                
+                                                // 如果是文字图层，显示编辑工具栏
+                                                if (layer.type === 'text') {
+                                                    setTextEditorPos({
+                                                        x: rect.left + canvasX + 20,
+                                                        y: rect.top + canvasY - 200
+                                                    });
+                                                    setColorBlockEditorPos(null);
+                                                } else if (layer.type === 'color') {
+                                                    // 如果是色块图层，显示编辑工具栏
+                                                    setColorBlockEditorPos({
+                                                        x: rect.left + canvasX + 20,
+                                                        y: rect.top + canvasY - 200
+                                                    });
+                                                    setTextEditorPos(null);
+                                                } else {
+                                                    setTextEditorPos(null);
+                                                    setColorBlockEditorPos(null);
+                                                }
+                                            }
+                                        }}
+                                        className={`group flex items-center gap-3 p-2 rounded-lg border cursor-pointer transition-all ${
+                                            isDragging 
+                                                ? 'opacity-50 cursor-grabbing' 
+                                                : selectedLayerId === layer.id 
+                                                    ? 'bg-brand-50 border-brand-200 shadow-sm' 
+                                                    : isDragOver
+                                                        ? 'bg-gray-50/50 border-black'
+                                                        : 'bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        <div className="cursor-grab text-gray-300 hover:text-gray-500">
+                                            <GripVertical size={14} />
+                                        </div>
+                                        <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden border border-gray-200 shrink-0 relative flex items-center justify-center">
+                                            {layer.type === 'color' ? (
+                                                <>
+                                                    <div className="w-full h-full" style={{ backgroundColor: layer.src }}></div>
+                                                    <input
+                                                        type="color"
+                                                        value={layer.src}
+                                                        onChange={(e) => updateColorLayer(layer.id, e.target.value)}
+                                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                                    />
+                                                </>
+                                            ) : layer.type === 'text' ? (
+                                                <div className="text-xs font-medium text-gray-700" style={{ color: layer.textProps?.color || '#000000' }}>
+                                                    {layer.src || '文字'}
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className="w-full h-full bg-contain bg-center bg-no-repeat"
+                                                    style={{ backgroundImage: `url(${layer.src})` }}
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-xs font-medium text-gray-700 truncate">
+                                                {layer.type === 'color' ? t('colorLayer') : layer.type === 'text' ? t('textLayer') : `${t('imageLayer')} ${layers.length - index}`}
+                                            </div>
+                                            <div className="text-[10px] text-gray-400 capitalize">
+                                                {layer.type}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setLayers(prev => prev.filter(l => l.id !== layer.id));
+                                                if (selectedLayerId === layer.id) {
+                                                    setSelectedLayerId(null);
+                                                    setTextEditorPos(null);
+                                                    setColorBlockEditorPos(null);
+                                                }
+                                                setPreviewVersion(v => v + 1);
+                                            }}
+                                            className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                    
+                                    {/* 插入位置指示线 - 下方 */}
+                                    {showInsertBelow && !isDragging && (
+                                        <div className="absolute -bottom-1 left-0 right-0 h-0.5 bg-black rounded-full z-10 shadow-sm">
+                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-black rounded-full"></div>
+                                        </div>
                                     )}
                                 </div>
-                                <div className="flex-1 min-w-0"><div className="text-xs font-medium text-gray-700 truncate">{layer.type === 'color' ? 'Color Block' : `Layer ${layers.length - index}`}</div><div className="text-[10px] text-gray-400 capitalize">{layer.type}</div></div>
-                                <button onClick={(e) => { e.stopPropagation(); setLayers(prev => prev.filter(l => l.id !== layer.id)); if (selectedLayerId === layer.id) setSelectedLayerId(null); setPreviewVersion(v => v + 1); }} className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"><Trash2 size={14} /></button>
-                            </div>
-                        ))
+                                );
+                                })
+                            )}
+                        </div>
                     )}
+                    </div>
+                    <div className="p-3 bg-gray-50 border-t border-gray-200 text-[10px] text-gray-400 text-center">Tips: 点击画布背景可设置底色<br />添加色块可覆盖局部区域</div>
                 </div>
-                <div className="p-3 bg-gray-50 border-t border-gray-200 text-[10px] text-gray-400 text-center">Tips: 点击画布背景可设置底色<br />添加色块可覆盖局部区域</div>
             </div>
 
             {/* 2. Main Canvas */}
             <div className="flex-1 flex flex-col relative overflow-hidden bg-[#f3f4f6]">
                 <div className="h-14 border-b border-gray-200 flex items-center justify-between px-6 bg-white z-20 shadow-sm">
-                    <div className="flex items-center gap-4"><span className="font-bold text-gray-800 text-lg">2D 平面设计</span><div className="h-4 w-px bg-gray-200"></div><div className="flex gap-2"><button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="Undo"><Undo2 size={16} /></button><button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="Redo"><Redo2 size={16} /></button></div></div>
-                    <div className="flex gap-3"><button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">取消</button><button onClick={handleSave} className="px-6 py-2 text-sm font-medium bg-brand-600 hover:bg-brand-700 text-white rounded-lg shadow-sm shadow-brand-500/30">完成设计</button></div>
+                    <div className="flex items-center gap-4">
+                        <span className="font-bold text-gray-800 text-lg">2D 平面设计</span>
+                        <div className="h-4 w-px bg-gray-200"></div>
+                        {/* UV 模式筛选按钮 */}
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setUvMode(uvMode === 'database' ? 'custom' : 'database')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                    uvMode === 'database'
+                                        ? 'bg-brand-100 text-brand-700 border border-brand-300'
+                                        : 'bg-gray-50 text-gray-600 border border-gray-200 hover:bg-gray-100'
+                                }`}
+                                title="切换 UV 模式"
+                            >
+                                <Filter size={14} />
+                                <span>{uvMode === 'database' ? '数据库 SVG' : '自定义 UV'}</span>
+                            </button>
+                        </div>
+                        <div className="h-4 w-px bg-gray-200"></div>
+                        <div className="flex gap-2">
+                            <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="Undo">
+                                <Undo2 size={16} />
+                            </button>
+                            <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="Redo">
+                                <Redo2 size={16} />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg">{t('cancel')}</button>
+                        <button onClick={handleSave} className="px-6 py-2 text-sm font-medium bg-black hover:bg-gray-800 text-white rounded-lg shadow-sm">{t('completeDesign')}</button>
+                    </div>
                 </div>
                 <div ref={containerRef} className="flex-1 relative overflow-hidden" style={{ cursor: cursorStyle }} onWheel={handleWheel} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onContextMenu={e => e.preventDefault()}>
                     <div style={{ position: 'absolute', left: 0, top: 0, transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0', width: canvasConfig.width, height: canvasConfig.height }}>
@@ -1394,56 +2940,6 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                 const isHovered = selectedRegionId === region.id;
                                 const hasColor = faceColors[region.id] !== null && faceColors[region.id] !== undefined;
 
-                                // Get SVG Path and corresponding scale transform
-                                const getRegionPathInfo = (r: Region) => {
-                                    // Get category-specific SVG paths
-                                    const category = config.category || 'custom';
-                                    const categoryPaths = CATEGORY_SVG_PATHS[category] || REGION_SVG_PATHS;
-
-                                    // Priority 0: Pre-calculated dynamic paths (from App)
-                                    if (config.dynamicSVGPaths && config.dynamicSVGPaths[r.id]) {
-                                        const dPath = config.dynamicSVGPaths[r.id];
-                                        const scaleX = r.w / dPath.w;
-                                        const scaleY = r.h / dPath.h;
-                                        return {
-                                            d: dPath.d,
-                                            transform: `translate(${r.x}, ${r.y}) scale(${scaleX}, ${scaleY})`
-                                        };
-                                    }
-
-                                    // Priority 1: Dynamic Path (from Custom Model internal calculation)
-                                    const dynamicPath = dynamicPaths[r.id];
-                                    if (dynamicPath && config.shape === 'custom') {
-                                        // dynamicPath.w/h are in UV space (0-1 usually or small floats)
-                                        // r.w/h are in Canvas Pixels (e.g. 300px)
-                                        const scaleX = r.w / dynamicPath.w;
-                                        const scaleY = r.h / dynamicPath.h;
-                                        return {
-                                            d: dynamicPath.d,
-                                            transform: `translate(${r.x}, ${r.y}) scale(${scaleX}, ${scaleY})`
-                                        };
-                                    }
-
-                                    // Priority 2: Category-specific Template (e.g., hat, t-shirt)
-                                    const pathData = categoryPaths[r.id];
-                                    if (pathData) {
-                                        const scaleX = r.w / pathData.w;
-                                        const scaleY = r.h / pathData.h;
-                                        return {
-                                            d: pathData.d,
-                                            transform: `translate(${r.x}, ${r.y}) scale(${scaleX}, ${scaleY})`
-                                        };
-                                    }
-
-                                    // Default rectangle
-                                    return {
-                                        d: `M 0 0 L ${r.w} 0 L ${r.w} ${r.h} L 0 ${r.h} Z`,
-                                        transform: `translate(${r.x}, ${r.y})`
-                                    };
-                                };
-
-                                const pathInfo = getRegionPathInfo(region);
-
                                 return (
                                     <g
                                         key={region.id}
@@ -1457,42 +2953,100 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                     >
                                         {/* Region Background (if has color) */}
                                         {hasColor && (
-                                            <path
-                                                d={pathInfo.d}
-                                                transform={pathInfo.transform}
+                                            <rect
+                                                x={region.x}
+                                                y={region.y}
+                                                width={region.w}
+                                                height={region.h}
                                                 fill={faceColors[region.id] || 'transparent'}
                                                 opacity={0.3}
                                                 className="transition-opacity pointer-events-none"
                                             />
                                         )}
 
-                                        {/* Region Border/Shape */}
-                                        <path
-                                            d={pathInfo.d}
-                                            transform={pathInfo.transform}
-                                            fill="rgba(255, 255, 255, 0.02)"
-                                            stroke={isSelected || isHovered ? '#3b82f6' : 'rgba(0, 0, 0, 0.15)'}
-                                            strokeWidth={isSelected || isHovered ? 2.5 : 1}
-                                            strokeDasharray={isSelected ? '0' : '8,4'}
-                                            className="cursor-pointer transition-all"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedRegionId(region.id);
-                                                setActiveFaceId(region.id);
-                                                const rect = containerRef.current?.getBoundingClientRect();
-                                                if (rect) {
-                                                    const canvasX = region.x * view.scale + view.x;
-                                                    const canvasY = region.y * view.scale + view.y;
-                                                    setColorPickerPos({
-                                                        x: canvasX + 20,
-                                                        y: canvasY - 50
-                                                    });
-                                                }
-                                            }}
-                                            style={{
-                                                filter: isHovered ? 'drop-shadow(0 0 8px rgba(59, 130, 246, 0.5))' : 'none'
-                                            }}
-                                        />
+                                        {/* Region Border/Shape - Use actual SVG path if available */}
+                                        {(() => {
+                                            const pathData = config.dynamicSVGPaths?.[region.id];
+                                            if (pathData && pathData.d) {
+                                                // 使用实际的 SVG 路径作为可点击区域
+                                                const svgCanvasWidth = pathData.w || canvasConfig.width;
+                                                const svgCanvasHeight = pathData.h || canvasConfig.height;
+                                                const scaleX = canvasConfig.width / svgCanvasWidth;
+                                                const scaleY = canvasConfig.height / svgCanvasHeight;
+                                                
+                                                return (
+                                                    <g transform={`scale(${scaleX}, ${scaleY})`}>
+                                                        <path
+                                                            d={pathData.d}
+                                                            fill="transparent"
+                                                            stroke="transparent"
+                                                            strokeWidth={0}
+                                                            className="cursor-pointer transition-all"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setSelectedRegionId(region.id);
+                                                                setActiveFaceId(null); // 先不激活，等点击颜色按钮后再激活
+                                                                const rect = containerRef.current?.getBoundingClientRect();
+                                                                if (rect) {
+                                                                    // 计算region顶部中心位置（在画布坐标系中）
+                                                                    const regionTopX = region.x + region.w / 2;
+                                                                    const regionTopY = region.y;
+                                                                    // 转换为屏幕坐标
+                                                                    const screenX = rect.left + regionTopX * view.scale + view.x;
+                                                                    const screenY = rect.top + regionTopY * view.scale + view.y;
+                                                                    // 显示颜色按钮，始终在region顶部
+                                                                    setShowColorButton({
+                                                                        regionId: region.id,
+                                                                        position: {
+                                                                            x: screenX - rect.left - 40, // 按钮宽度的一半，使其居中
+                                                                            y: screenY - rect.top - 50
+                                                                        }
+                                                                    });
+                                                                    setColorPickerPos(null); // 清除颜色选择器位置
+                                                                }
+                                                            }}
+                                                        />
+                                                    </g>
+                                                );
+                                            }
+                                            
+                                            // 回退到矩形（如果没有 SVG 路径）
+                                            return (
+                                                <rect
+                                                    x={region.x}
+                                                    y={region.y}
+                                                    width={region.w}
+                                                    height={region.h}
+                                                    fill="transparent"
+                                                    stroke="transparent"
+                                                    strokeWidth={0}
+                                                    className="cursor-pointer transition-all"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedRegionId(region.id);
+                                                        setActiveFaceId(null); // 先不激活，等点击颜色按钮后再激活
+                                                        const rect = containerRef.current?.getBoundingClientRect();
+                                                        if (rect) {
+                                                            // 计算region顶部中心位置（在画布坐标系中）
+                                                            const regionTopX = region.x + region.w / 2;
+                                                            const regionTopY = region.y;
+                                                            // 转换为屏幕坐标
+                                                            const screenX = rect.left + regionTopX * view.scale + view.x;
+                                                            const screenY = rect.top + regionTopY * view.scale + view.y;
+                                                            // 显示颜色按钮，始终在region顶部
+                                                            setShowColorButton({
+                                                                regionId: region.id,
+                                                                position: {
+                                                                    x: screenX - rect.left - 40, // 按钮宽度的一半，使其居中
+                                                                    y: screenY - rect.top - 50
+                                                                }
+                                                            });
+                                                            setColorPickerPos(null); // 清除颜色选择器位置
+                                                        }
+                                                    }}
+                                                />
+                                            );
+                                        })()}
 
                                         {/* Region Label - Simple Text */}
                                         <g transform={`translate(${region.x + region.w / 2}, ${region.y + region.h / 2})`}>
@@ -1514,7 +3068,69 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                             })}
                         </svg>
                     </div>
-                    {activeFaceId && colorPickerPos && <ColorPickerPopup color={faceColors[activeFaceId]} position={colorPickerPos} onChange={(c) => { setFaceColors(prev => ({ ...prev, [activeFaceId]: c })); setPreviewVersion(v => v + 1); }} onClose={() => setActiveFaceId(null)} />}
+                    {/* 颜色按钮 - 第一步交互 */}
+                    {showColorButton && !colorPickerPos && (
+                        <ColorButton
+                            position={showColorButton.position}
+                            onClick={() => {
+                                // 点击颜色按钮后，显示颜色选择器
+                                setActiveFaceId(showColorButton.regionId);
+                                // 颜色选择器也显示在region顶部
+                                setColorPickerPos(showColorButton.position);
+                                setShowColorButton(null);
+                            }}
+                            onClose={() => {
+                                setShowColorButton(null);
+                                setSelectedRegionId(null);
+                            }}
+                        />
+                    )}
+                    {/* 颜色选择器 - 第二步交互 */}
+                    {activeFaceId && colorPickerPos && (
+                        <ColorPickerPopup
+                            color={faceColors[activeFaceId]}
+                            position={colorPickerPos}
+                            onChange={(c) => {
+                                setFaceColors(prev => ({ ...prev, [activeFaceId]: c }));
+                                setPreviewVersion(v => v + 1);
+                            }}
+                            onClose={() => {
+                                setActiveFaceId(null);
+                                setColorPickerPos(null);
+                                setSelectedRegionId(null);
+                            }}
+                        />
+                    )}
+                    {/* 文字编辑工具栏 */}
+                    {selectedLayerId && textEditorPos && (() => {
+                        const textLayer = layers.find(l => l.id === selectedLayerId && l.type === 'text');
+                        return textLayer ? (
+                            <TextEditorToolbar
+                                layer={textLayer}
+                                position={textEditorPos}
+                                onUpdate={(updates) => updateTextLayer(selectedLayerId, updates)}
+                                onClose={() => {
+                                    setTextEditorPos(null);
+                                    // 不取消选中图层，只是关闭工具栏
+                                }}
+                            />
+                        ) : null;
+                    })()}
+                    {/* 色块编辑工具栏 */}
+                    {selectedLayerId && colorBlockEditorPos && (() => {
+                        const colorLayer = layers.find(l => l.id === selectedLayerId && l.type === 'color');
+                        return colorLayer ? (
+                            <ColorBlockEditorToolbar
+                                layer={colorLayer}
+                                position={colorBlockEditorPos}
+                                onUpdate={(updates) => updateColorBlockLayer(selectedLayerId, updates)}
+                                onClose={() => {
+                                    setColorBlockEditorPos(null);
+                                    // 不取消选中图层，只是关闭工具栏
+                                }}
+                            />
+                        ) : null;
+                    })()}
                     <div className="absolute bottom-6 left-6 flex gap-2">
                         <div className="bg-white p-1 rounded-lg border border-gray-200 shadow-sm flex items-center gap-1"><button onClick={() => setView(v => ({ ...v, scale: Math.max(0.1, v.scale - 0.1) }))} className="p-1.5 hover:bg-gray-100 rounded text-gray-500 transition-colors"><ZoomOut size={14} /></button><span className="text-xs font-medium text-gray-600 w-10 text-center select-none">{Math.round(view.scale * 100)}%</span><button onClick={() => setView(v => ({ ...v, scale: Math.min(5, v.scale + 0.1) }))} className="p-1.5 hover:bg-gray-100 rounded text-gray-500 transition-colors"><ZoomIn size={14} /></button></div>
                         <div className="bg-white p-1 rounded-lg border border-gray-200 shadow-sm flex items-center gap-1">{[0.25, 0.5, 1.0].map(s => (<button key={s} onClick={() => setView(prev => ({ ...prev, scale: s }))} className="px-2 py-1.5 hover:bg-gray-100 rounded text-[10px] font-medium text-gray-500 hover:text-gray-900 transition-colors">{s * 100}%</button>))}<div className="w-px h-3 bg-gray-200 mx-1"></div><button onClick={fitToScreen} className="px-2 py-1.5 hover:bg-gray-100 rounded text-[10px] font-medium text-gray-500 hover:text-brand-600 transition-colors flex items-center gap-1" title="Fit to Screen"><Maximize size={10} /> Fit</button></div>
@@ -1527,7 +3143,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 <div className="relative w-full h-full bg-gray-50">
                     <Canvas
                         shadows
-                        camera={{ position: [0, 0, 3.2], fov: 40 }}
+                        camera={{ position: [0, 0, 50], fov: 50 }}
                         gl={{
                             antialias: true,
                             toneMapping: THREE.ACESFilmicToneMapping,

@@ -1,5 +1,5 @@
 
-const DB_NAME = 'PacdoraLiteDB';
+const DB_NAME = 'TeemdropLiteDB';
 const STORE_NAME = 'custom_models';
 const DB_VERSION = 1;
 

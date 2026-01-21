@@ -1,10 +1,11 @@
 {
-  "name": "pacdora-lite-3d-designer",
+  "name": "Teemdrop-lite-3d-designer",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "podtest": "vite serve podtest --config vite.podtest.config.ts",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -22,7 +23,6 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
-    "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"

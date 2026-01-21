@@ -64,7 +64,7 @@ export const generateFeasibilityAnalysis = async (): Promise<string> => {
     try {
         const response = await ai.models.generateContent({
             model: "gemini-3-flash-preview",
-            contents: "Briefly analyze the feasibility of building a web-based 3D packaging design tool (like Pacdora) using React and Three.js. Provide 3 bullet points in Chinese focused on Performance, Technical Difficulty, and Market Readiness.",
+            contents: "Briefly analyze the feasibility of building a web-based 3D packaging design tool (like Teemdrop) using React and Three.js. Provide 3 bullet points in Chinese focused on Performance, Technical Difficulty, and Market Readiness.",
         });
         return response.text || "无法生成报告";
     } catch (e) {

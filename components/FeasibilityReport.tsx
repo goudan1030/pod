@@ -86,7 +86,7 @@ const FeasibilityReport: React.FC<FeasibilityReportProps> = ({ isOpen, onClose }
                 <div className="p-6 border-b border-white/10 flex justify-between items-center bg-dark-800">
                     <div>
                         <h2 className="text-xl font-bold text-white">技术可行性评估报告</h2>
-                        <p className="text-xs text-gray-400 mt-1">项目代号: Pacdora-Lite • 评估人: Senior Architect (AI)</p>
+                        <p className="text-xs text-gray-400 mt-1">项目代号: Teemdrop-Lite • 评估人: Senior Architect (AI)</p>
                     </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
                         <X size={24} />
@@ -101,7 +101,7 @@ const FeasibilityReport: React.FC<FeasibilityReportProps> = ({ isOpen, onClose }
                             老板，这是你要的评估结论：
                         </h3>
                         <div className="text-sm text-gray-300 space-y-2">
-                            <p>仿制 Pacdora 核心功能的<b>技术门槛中等偏低</b>，完全可行。</p>
+                            <p>仿制 Teemdrop 核心功能的<b>技术门槛中等偏低</b>，完全可行。</p>
                             <ul className="list-disc pl-5 space-y-1 text-gray-400 text-xs">
                                 <li><b>核心技术栈</b>: React + Three.js 生态极其成熟。</li>
                                 <li><b>成本优势</b>: 前端渲染降低服务器压力，AI 生成增加付费点。</li>

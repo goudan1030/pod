@@ -20,6 +20,10 @@ const router = createBrowserRouter([
         element: <Designer />,
     },
     {
+        path: '/:category/:modelId',
+        element: <Designer />,
+    },
+    {
         path: '/admin',
         element: <AdminLayout />,
         children: [

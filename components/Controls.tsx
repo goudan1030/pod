@@ -3,6 +3,7 @@ import { PackagingState, ShapeType } from '../types';
 import { Box, Circle, Cylinder, Loader2, Sparkles, AlertCircle, FileText, CheckCircle2, Upload, Package, PackagePlus, Ruler, Palette, Shirt, BoxSelect, Edit3, Trash2, Database } from 'lucide-react';
 import { generateTexture } from '../services/geminiService';
 import { saveModelToLibrary, getModelLibrary, getModelBlob, deleteModelFromLibrary, ModelMetadata } from '../services/storageService';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface ControlsProps {
   config: PackagingState;
@@ -22,6 +23,7 @@ const SHAPES: { id: ShapeType; label: string; icon: React.ReactNode }[] = [
 ];
 
 const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility, onOpenEditor }) => {
+  const { t } = useLanguage();
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,6 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
   const [isLoadingModels, setIsLoadingModels] = useState(false);
 
   const imgInputRef = useRef<HTMLInputElement>(null);
-  const modelInputRef = useRef<HTMLInputElement>(null);
 
   // Load models on mount
   useEffect(() => {
@@ -83,69 +84,32 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
     }
   };
 
-  const handleModelUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      try {
-        // 1. Save to DB
-        const savedMeta = await saveModelToLibrary(file);
 
-        // 2. Refresh List
-        setSavedModels(prev => [savedMeta, ...prev]);
 
-        // 3. Set Active
-        const url = URL.createObjectURL(file);
-        onChange({
-          shape: 'custom',
-          customModelUrl: url
-        });
-
-        // Reset input
-        if (modelInputRef.current) modelInputRef.current.value = '';
-
-      } catch (e) {
-        console.error("Failed to save model", e);
-        // Fallback if DB fails: just show it temporarily
-        const url = URL.createObjectURL(file);
-        onChange({ shape: 'custom', customModelUrl: url });
-      }
-    }
+  // 材质预设定义
+  const materialPresets = {
+    cotton: { name: '棉基', color: '#ffffff', roughness: 0.7, metalness: 0 },
+    white: { name: '白棉布', color: '#ffffff', roughness: 0.5, metalness: 0 },
+    kraft: { name: '黄麻布', color: '#e3c099', roughness: 0.9, metalness: 0 },
+    glossy: { name: '丝绸', color: '#ffffff', roughness: 0.1, metalness: 0.1 },
+    canvas: { name: '帆布', color: '#f5f5dc', roughness: 0.8, metalness: 0 },
+    denim: { name: '牛仔布', color: '#4a6fa5', roughness: 0.85, metalness: 0 },
+    leather: { name: '皮革', color: '#8b4513', roughness: 0.6, metalness: 0.1 },
+    metal: { name: '金属', color: '#c0c0c0', roughness: 0.2, metalness: 0.9 },
+    plastic: { name: '塑料', color: '#ffffff', roughness: 0.3, metalness: 0.2 },
+    paper: { name: '纸张', color: '#fffef7', roughness: 0.95, metalness: 0 },
   };
 
-  const handleSelectSavedModel = async (id: string) => {
-    try {
-      const blob = await getModelBlob(id);
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        onChange({
-          shape: 'custom',
-          customModelUrl: url
-        });
-      }
-    } catch (e) {
-      console.error("Failed to load saved model", e);
-    }
-  };
-
-  const handleDeleteModel = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (confirm('确定要从库中删除此模型吗？')) {
-      await deleteModelFromLibrary(id);
-      setSavedModels(prev => prev.filter(m => m.id !== id));
-    }
-  };
-
-  const applyMaterial = (type: 'white' | 'kraft' | 'glossy') => {
-    switch (type) {
-      case 'white':
-        onChange({ color: '#ffffff', roughness: 0.5, metalness: 0, textureUrl: null });
-        break;
-      case 'kraft':
-        onChange({ color: '#e3c099', roughness: 0.9, metalness: 0, textureUrl: null });
-        break;
-      case 'glossy':
-        onChange({ color: '#ffffff', roughness: 0.1, metalness: 0.1, textureUrl: null });
-        break;
+  const applyMaterial = (type: keyof typeof materialPresets) => {
+    const preset = materialPresets[type];
+    if (preset) {
+      onChange({ 
+        color: preset.color, 
+        roughness: preset.roughness, 
+        metalness: preset.metalness, 
+        material: preset.name,
+        textureUrl: null 
+      });
     }
   };
 
@@ -155,7 +119,7 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
       {/* Header */}
       <div className="p-5 border-b border-gray-200 flex items-center justify-between bg-white sticky top-0 z-10">
         <h1 className="font-extrabold text-gray-900 text-xl tracking-tight flex items-center gap-1">
-          PACDORA <span className="text-brand-600 text-xs font-normal border border-brand-200 px-1 rounded">Lite</span>
+          {t('appName')} <span className="text-brand-600 text-xs font-normal border border-brand-200 px-1 rounded">Lite</span>
         </h1>
         <button
           onClick={onOpenFeasibility}
@@ -171,14 +135,14 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
         <section>
           <label className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
             <Palette size={14} />
-            1. 材质与图案 (Design)
+            1. {t('materialAndPattern')} ({t('design')})
           </label>
 
           {/* Color & Base Material */}
           <div className="space-y-4 mb-5">
             <div>
               <div className="flex justify-between mb-1.5">
-                <span className="text-xs font-medium text-gray-600">底色 (Base Color)</span>
+                <span className="text-xs font-medium text-gray-600">{t('baseColor')}</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="relative w-8 h-8 rounded-full overflow-hidden border border-gray-200 shadow-sm">
@@ -195,9 +159,106 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
 
             {/* Presets */}
             <div className="grid grid-cols-3 gap-2">
-              <button onClick={() => applyMaterial('white')} className="py-1.5 px-2 text-xs font-medium rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 shadow-sm">白棉布</button>
-              <button onClick={() => applyMaterial('kraft')} className="py-1.5 px-2 text-xs font-medium rounded border border-[#e3c099]/50 bg-[#e3c099]/10 hover:bg-[#e3c099]/20 text-[#b08d66]">黄麻布</button>
-              <button onClick={() => applyMaterial('glossy')} className="py-1.5 px-2 text-xs font-medium rounded border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 shadow-sm">丝绸</button>
+              <button 
+                onClick={() => applyMaterial('cotton')} 
+                className={`py-1.5 px-2 text-xs font-medium rounded border transition-all ${
+                  config.material === '棉基' 
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                棉基
+              </button>
+              <button 
+                onClick={() => applyMaterial('white')} 
+                className={`py-1.5 px-2 text-xs font-medium rounded border transition-all ${
+                  config.material === '白棉布' 
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                白棉布
+              </button>
+              <button 
+                onClick={() => applyMaterial('kraft')} 
+                className={`py-1.5 px-2 text-xs font-medium rounded border transition-all ${
+                  config.material === '黄麻布' 
+                    ? 'border-brand-500 bg-[#e3c099]/30 text-[#b08d66] shadow-sm' 
+                    : 'border-[#e3c099]/50 bg-[#e3c099]/10 hover:bg-[#e3c099]/20 text-[#b08d66]'
+                }`}
+              >
+                黄麻布
+              </button>
+              <button 
+                onClick={() => applyMaterial('glossy')} 
+                className={`py-1.5 px-2 text-xs font-medium rounded border transition-all ${
+                  config.material === '丝绸' 
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                丝绸
+              </button>
+              <button 
+                onClick={() => applyMaterial('canvas')} 
+                className={`py-1.5 px-2 text-xs font-medium rounded border transition-all ${
+                  config.material === '帆布' 
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                帆布
+              </button>
+              <button 
+                onClick={() => applyMaterial('denim')} 
+                className={`py-1.5 px-2 text-xs font-medium rounded border transition-all ${
+                  config.material === '牛仔布' 
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                牛仔布
+              </button>
+              <button 
+                onClick={() => applyMaterial('leather')} 
+                className={`py-1.5 px-2 text-xs font-medium rounded border transition-all ${
+                  config.material === '皮革' 
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                皮革
+              </button>
+              <button 
+                onClick={() => applyMaterial('metal')} 
+                className={`py-1.5 px-2 text-xs font-medium rounded border transition-all ${
+                  config.material === '金属' 
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                金属
+              </button>
+              <button 
+                onClick={() => applyMaterial('plastic')} 
+                className={`py-1.5 px-2 text-xs font-medium rounded border transition-all ${
+                  config.material === '塑料' 
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                塑料
+              </button>
+              <button 
+                onClick={() => applyMaterial('paper')} 
+                className={`py-1.5 px-2 text-xs font-medium rounded border transition-all ${
+                  config.material === '纸张' 
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:bg-gray-50 text-gray-700'
+                }`}
+              >
+                纸张
+              </button>
             </div>
           </div>
 
@@ -210,18 +271,18 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
                 onClick={() => imgInputRef.current?.click()}
                 className="w-full py-3 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md"
               >
-                <Upload size={16} className="text-brand-600" />
-                上传 Logo / 图案
+                <Upload size={16} className="text-black" />
+                {t('uploadLogoPattern')}
               </button>
 
               {/* Edit Existing */}
               {config.textureUrl && (
                 <button
                   onClick={() => onOpenEditor(null)}
-                  className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white border border-transparent rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-brand-500/20"
+                  className="w-full py-3 bg-black hover:bg-gray-800 text-white border border-transparent rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md"
                 >
                   <Edit3 size={16} />
-                  调整当前设计 (2D Editor)
+                  {t('adjustCurrentDesign')}
                 </button>
               )}
 
@@ -232,12 +293,12 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
             <div className="bg-gradient-to-br from-purple-50 to-white p-4 rounded-xl border border-purple-100 mt-6 shadow-inner">
               <label className="flex items-center gap-2 text-xs font-bold text-purple-600 uppercase tracking-wider mb-2">
                 <Sparkles size={14} />
-                AI 创意生成
+                {t('aiCreativeGeneration')}
               </label>
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder="例如: 极简主义线条, 赛博朋克风格"
+                placeholder={t('example')}
                 className="w-full bg-white border border-purple-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none resize-none h-16 placeholder-gray-400 mb-3 text-gray-700"
               />
               <button
@@ -246,10 +307,10 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
                   if (prompt) handleGenerate();
                   else setPrompt('Cool pattern');
                 }}
-                className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-all shadow-sm"
+                className="w-full py-2 bg-black hover:bg-gray-800 text-white rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-all shadow-sm"
               >
                 {isGenerating ? <Loader2 className="animate-spin" size={14} /> : <Sparkles size={14} />}
-                生成并应用
+                {t('generateAndApply')}
               </button>
               {error && <span className="text-red-500 text-[10px] mt-2 block font-medium">{error}</span>}
             </div>
@@ -258,7 +319,7 @@ const Controls: React.FC<ControlsProps> = ({ config, onChange, onOpenFeasibility
         </section>
 
         <div className="text-[10px] text-gray-400 pt-4 border-t border-gray-100 flex justify-center">
-          Powered by Gemini & Three.js
+          {t('poweredBy')}
         </div>
 
       </div>

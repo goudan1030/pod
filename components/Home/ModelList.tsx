@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { ModelItem } from '../../data/mockData';
 import { Edit3, Box } from 'lucide-react';
 import ModelPreview from './ModelPreview';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface ModelListProps {
     models: ModelItem[];
@@ -9,6 +10,7 @@ interface ModelListProps {
 }
 
 const ModelList: React.FC<ModelListProps> = ({ models, onSelectModel }) => {
+    const { t } = useLanguage();
     return (
         <div className="flex-1 h-full overflow-y-auto bg-gray-50/50 p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -42,10 +44,10 @@ const ModelList: React.FC<ModelListProps> = ({ models, onSelectModel }) => {
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-3 backdrop-blur-[2px]">
                                 <button className="bg-white text-gray-900 px-6 py-2.5 rounded-full font-bold text-sm shadow-xl transform scale-90 group-hover:scale-100 transition-transform duration-300 hover:bg-brand-50 hover:text-brand-600 flex items-center gap-2">
                                     <Edit3 size={14} />
-                                    Customize
+                                    {t('customize')}
                                 </button>
                                 <div className="bg-white/20 text-white px-4 py-1.5 rounded-full text-xs font-medium backdrop-blur-md">
-                                    Click to Edit
+                                    {t('clickToEdit')}
                                 </div>
                             </div>
                         </div>
@@ -57,7 +59,7 @@ const ModelList: React.FC<ModelListProps> = ({ models, onSelectModel }) => {
                                 <div className="w-3 h-3 rounded-full bg-gray-200 border border-white shadow-sm ring-1 ring-gray-100"></div>
                                 <div className="w-3 h-3 rounded-full bg-gray-300 border border-white shadow-sm ring-1 ring-gray-100"></div>
                                 <div className="w-3 h-3 rounded-full bg-gray-400 border border-white shadow-sm ring-1 ring-gray-100"></div>
-                                <span className="text-xs text-gray-400 ml-1">+2 variants</span>
+                                <span className="text-xs text-gray-400 ml-1">+2 {t('variants')}</span>
                             </div>
                         </div>
                     </div>
@@ -67,7 +69,7 @@ const ModelList: React.FC<ModelListProps> = ({ models, onSelectModel }) => {
                 {models.length === 0 && (
                     <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
                         <Box size={48} strokeWidth={1} className="mb-4 text-gray-300" />
-                        <p>No models found in this category.</p>
+                        <p>{t('noModelsFound')}</p>
                     </div>
                 )}
             </div>

@@ -2,6 +2,7 @@ import React from 'react';
 import { Category } from '../../types'; // Fix import source
 import { ChevronRight, Shirt, Hexagon, Crown, Square, Archive, Box, ShoppingBag, SprayCan, GlassWater, Package } from 'lucide-react';
 import logo from '../../assets/images/logo.svg';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 const ICON_MAP: Record<string, any> = {
     'archive': Archive,
@@ -23,6 +24,13 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ categories, selectedCategory, onSelectCategory }) => {
+    const { t } = useLanguage();
+    
+    // 获取分类的翻译名称
+    const getCategoryName = (categoryId: string) => {
+        return t(`category.${categoryId}`) || categoryId;
+    };
+    
     return (
         <div className="w-64 h-full bg-white border-r border-gray-100 flex flex-col py-6 overflow-y-auto">
             <div className="px-6 mb-6">
@@ -50,7 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({ categories, selectedCategory, onSelec
                                     }`}>
                                     <Icon size={18} />
                                 </div>
-                                <span className="text-sm">{category.name}</span>
+                                <span className="text-sm">{getCategoryName(category.id)}</span>
                             </div>
                             {isSelected && <ChevronRight size={16} className="text-brand-400" />}
                         </button>
