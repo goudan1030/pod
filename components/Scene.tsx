@@ -339,6 +339,48 @@ export const PackagingMesh: React.FC<{ config: PackagingState; overrideTexture?:
   }
 };
 
+// Gradient Background Component - darker at top
+const GradientBackground: React.FC = () => {
+  const { scene, size } = useThree();
+  
+  useEffect(() => {
+    // Create gradient texture using Canvas 2D API
+    // Use larger canvas for better quality
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      // Create vertical gradient: darker at top (#9ca3af), lighter at bottom (#d1d5db)
+      const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+      gradient.addColorStop(0, '#9ca3af'); // Darker gray at top
+      gradient.addColorStop(0.5, '#b8bcc5'); // Medium gray in middle
+      gradient.addColorStop(1, '#d1d5db'); // Lighter gray at bottom
+      
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 512, 512);
+      
+      // Create texture from canvas
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      texture.needsUpdate = true;
+      
+      // Set as scene background
+      scene.background = texture;
+    }
+    
+    return () => {
+      if (scene.background && scene.background instanceof THREE.Texture) {
+        scene.background.dispose();
+        scene.background = null;
+      }
+    };
+  }, [scene]);
+  
+  return null;
+};
+
 const defaultCameraDistance = 80; // Increased to 80 for optimal viewing distance
 
 // Camera Controls Component to access OrbitControls
@@ -512,7 +554,8 @@ const Scene: React.FC<SceneProps> = ({ config, onModelClick }) => {
         camera={{ fov: 35, position: [0, 0, defaultCameraDistance], near: 0.1, far: 1000 }}
       >
         <React.Suspense fallback={null}>
-          <color attach="background" args={['#d1d5db']} />
+          {/* Gradient Background - darker at top */}
+          <GradientBackground />
           {/* Natural lighting environment */}
           <Environment preset="city" />
 

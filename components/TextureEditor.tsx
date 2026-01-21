@@ -884,6 +884,11 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
     // -- State --
     const [layers, setLayers] = useState<Layer[]>([]);
     const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+    
+    // 撤销/重做历史记录
+    const [history, setHistory] = useState<Layer[][]>([[]]); // 历史记录栈
+    const [historyIndex, setHistoryIndex] = useState(0); // 当前历史记录索引
+    const isUndoRedoRef = useRef(false); // 标记是否正在执行撤销/重做，避免循环保存历史
     const [activePanel, setActivePanel] = useState<'upload' | 'layers' | 'assets'>('upload');
     const [uvMode, setUvMode] = useState<'database' | 'custom'>('database'); // UV 模式：database = 使用数据库 SVG region
 
@@ -935,11 +940,13 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         startView: ViewportState;
         startLayer: Layer | null;
         activeHandle?: string; // 'tl', 'tr', 'bl', 'br', 'rot'
+        historySaved?: boolean; // 标记是否已保存操作开始时的历史
     }>({
         mode: 'none',
         startMouse: { x: 0, y: 0 },
         startView: { x: 0, y: 0, scale: 1 },
-        startLayer: null
+        startLayer: null,
+        historySaved: false
     });
 
     // -- Config & Init --
@@ -1254,19 +1261,147 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         }
     }, [regions, faceColors]);
 
+    // 保存历史记录
+    const saveHistory = useCallback((newLayers: Layer[]) => {
+        if (isUndoRedoRef.current) return; // 如果正在执行撤销/重做，不保存历史
+        
+        setHistory(prev => {
+            // 移除当前索引之后的所有历史记录（如果有重做历史）
+            const newHistory = prev.slice(0, historyIndex + 1);
+            // 添加新的历史记录
+            newHistory.push(newLayers.map(l => ({ ...l, imgElement: null }))); // 移除不能序列化的imgElement
+            // 限制历史记录数量（最多50条）
+            if (newHistory.length > 50) {
+                newHistory.shift();
+            }
+            return newHistory;
+        });
+        
+        // 更新索引
+        setHistoryIndex(prev => {
+            const newIndex = prev + 1;
+            // 如果历史记录被截断，调整索引
+            return newIndex >= 50 ? 49 : newIndex;
+        });
+    }, [historyIndex]);
+
+    // 更新layers并保存历史
+    const updateLayersWithHistory = useCallback((updater: (prev: Layer[]) => Layer[]) => {
+        setLayers(prev => {
+            const newLayers = updater(prev);
+            saveHistory(newLayers);
+            return newLayers;
+        });
+        setPreviewVersion(v => v + 1);
+    }, [saveHistory]);
+
+    // 从历史记录恢复图层（包括重新加载图片）
+    const restoreLayersFromHistory = useCallback((historyLayers: Layer[]) => {
+        const nonImageLayers = historyLayers.filter(l => l.type !== 'image');
+        const imageLayers = historyLayers.filter(l => l.type === 'image' && l.src);
+        
+        if (imageLayers.length === 0) {
+            // 没有图片图层，直接恢复
+            setLayers(historyLayers);
+            setPreviewVersion(v => v + 1);
+            return;
+        }
+        
+        // 异步加载图片
+        const restoredLayers: Layer[] = [...nonImageLayers];
+        let loadedCount = 0;
+        
+        imageLayers.forEach(layer => {
+            const img = new Image();
+            img.src = layer.src;
+            img.onload = () => {
+                restoredLayers.push({ ...layer, imgElement: img } as Layer);
+                loadedCount++;
+                if (loadedCount === imageLayers.length) {
+                    setLayers(restoredLayers);
+                    setPreviewVersion(v => v + 1);
+                }
+            };
+            img.onerror = () => {
+                restoredLayers.push(layer as Layer);
+                loadedCount++;
+                if (loadedCount === imageLayers.length) {
+                    setLayers(restoredLayers);
+                    setPreviewVersion(v => v + 1);
+                }
+            };
+        });
+    }, []);
+
+    // 撤销
+    const handleUndo = useCallback(() => {
+        if (historyIndex > 0) {
+            isUndoRedoRef.current = true;
+            const newIndex = historyIndex - 1;
+            const historyLayers = history[newIndex];
+            
+            restoreLayersFromHistory(historyLayers);
+            setHistoryIndex(newIndex);
+            
+            setTimeout(() => {
+                isUndoRedoRef.current = false;
+            }, 100);
+        }
+    }, [history, historyIndex, restoreLayersFromHistory]);
+
+    // 重做
+    const handleRedo = useCallback(() => {
+        if (historyIndex < history.length - 1) {
+            isUndoRedoRef.current = true;
+            const newIndex = historyIndex + 1;
+            const historyLayers = history[newIndex];
+            
+            restoreLayersFromHistory(historyLayers);
+            setHistoryIndex(newIndex);
+            
+            setTimeout(() => {
+                isUndoRedoRef.current = false;
+            }, 100);
+        }
+    }, [history, historyIndex, restoreLayersFromHistory]);
+
+    // 初始化历史记录
+    useEffect(() => {
+        if (layers.length === 0 && history.length === 1 && history[0].length === 0) {
+            // 初始化时保存空状态
+            setHistory([[]]);
+            setHistoryIndex(0);
+        }
+    }, []);
+
     // Keyboard Shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (!isOpen) return;
+            
+            // 撤销 (Ctrl+Z 或 Cmd+Z)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                handleUndo();
+                return;
+            }
+            
+            // 重做 (Ctrl+Shift+Z 或 Cmd+Shift+Z 或 Ctrl+Y)
+            if (((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) || 
+                ((e.ctrlKey || e.metaKey) && e.key === 'y')) {
+                e.preventDefault();
+                handleRedo();
+                return;
+            }
+            
             if ((e.key === 'Delete' || e.key === 'Backspace') && selectedLayerId) {
-                setLayers(prev => prev.filter(l => l.id !== selectedLayerId));
+                updateLayersWithHistory(prev => prev.filter(l => l.id !== selectedLayerId));
                 setSelectedLayerId(null);
-                setPreviewVersion(v => v + 1);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, selectedLayerId]);
+    }, [isOpen, selectedLayerId, handleUndo, handleRedo, updateLayersWithHistory]);
 
     // Load Custom UVs
     useEffect(() => {
@@ -1561,6 +1696,18 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                         
                         if (loadedCount === imageLayers.length) {
                             setUploadedImages(restoredImages);
+                            // 初始化历史记录（仅在首次加载时，所有图片加载完成后）
+                            // 使用setLayers的回调获取最新的layers状态
+                            setLayers(currentLayers => {
+                                if (history.length === 1 && history[0].length === 0) {
+                                    // 延迟保存，确保状态已更新
+                                    setTimeout(() => {
+                                        isUndoRedoRef.current = false; // 确保可以保存
+                                        saveHistory(currentLayers);
+                                    }, 0);
+                                }
+                                return currentLayers;
+                            });
                         }
                     };
                 });
@@ -1569,6 +1716,14 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 setLayers(restoredLayers);
                 // 立即触发画布重新渲染
                 setPreviewVersion(v => v + 1);
+                // 初始化历史记录（仅在首次加载时）
+                if (history.length === 1 && history[0].length === 0) {
+                    // 延迟保存，确保状态已更新
+                    setTimeout(() => {
+                        isUndoRedoRef.current = false; // 确保可以保存
+                        saveHistory(restoredLayers);
+                    }, 0);
+                }
             }
         } else if (initialImage && uploadedImages.length === 0 && layers.length === 0 && !initialLayers) {
             // 兼容旧逻辑：如果有初始图片但没有图层数据，使用旧方式
@@ -1594,9 +1749,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 rotation: 0,
                 scale: Math.min(500 / img.width, 1),
             };
-            setLayers(prev => [...prev, newLayer]);
+            updateLayersWithHistory(prev => [...prev, newLayer]);
             setSelectedLayerId(newLayer.id);
-            setPreviewVersion(v => v + 1);
         };
     };
 
@@ -1637,9 +1791,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 rotation: 0,
                 scale: scale,
             };
-            setLayers(prev => [...prev, newLayer]);
+            updateLayersWithHistory(prev => [...prev, newLayer]);
             setSelectedLayerId(newLayer.id);
-            setPreviewVersion(v => v + 1);
         };
     };
 
@@ -1657,9 +1810,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             rotation: 0,
             scale: 1,
         };
-        setLayers(prev => [...prev, newLayer]);
+        updateLayersWithHistory(prev => [...prev, newLayer]);
         setSelectedLayerId(newLayer.id);
-        setPreviewVersion(v => v + 1);
     };
 
     const addTextBlock = () => {
@@ -1700,18 +1852,16 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             scale: 1,
             textProps,
         };
-        setLayers(prev => [...prev, newLayer]);
+        updateLayersWithHistory(prev => [...prev, newLayer]);
         setSelectedLayerId(newLayer.id);
-        setPreviewVersion(v => v + 1);
     };
 
     const updateColorLayer = (id: string, color: string) => {
-        setLayers(prev => prev.map(l => l.id === id ? { ...l, src: color } : l));
-        setPreviewVersion(v => v + 1);
+        updateLayersWithHistory(prev => prev.map(l => l.id === id ? { ...l, src: color } : l));
     };
 
     const updateColorBlockLayer = (id: string, updates: { src?: string; width?: number; height?: number; rotation?: number; scale?: number }) => {
-        setLayers(prev => prev.map(l => {
+        updateLayersWithHistory(prev => prev.map(l => {
             if (l.id === id && l.type === 'color') {
                 return {
                     ...l,
@@ -1720,11 +1870,10 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             }
             return l;
         }));
-        setPreviewVersion(v => v + 1);
     };
 
     const updateTextLayer = (id: string, updates: Partial<Layer['textProps']> & { src?: string }) => {
-        setLayers(prev => prev.map(l => {
+        updateLayersWithHistory(prev => prev.map(l => {
             if (l.id === id && l.type === 'text') {
                 const newTextProps = {
                     ...l.textProps,
@@ -1761,7 +1910,6 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             }
             return l;
         }));
-        setPreviewVersion(v => v + 1);
     };
 
     // Math helpers...
@@ -2360,11 +2508,34 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             const hit = getHitInfo(e.clientX, e.clientY);
             if (hit) {
                 if (hit.type === 'rotate') {
-                    interactionRef.current = { mode: 'rotate_layer', startMouse: { x: e.clientX, y: e.clientY }, startView: view, startLayer: { ...hit.layer } };
+                    // 保存操作开始时的历史（使用setLayers的回调获取最新状态）
+                    setLayers(currentLayers => {
+                        saveHistory(currentLayers);
+                        return currentLayers;
+                    });
+                    interactionRef.current = { 
+                        mode: 'rotate_layer', 
+                        startMouse: { x: e.clientX, y: e.clientY }, 
+                        startView: view, 
+                        startLayer: { ...hit.layer },
+                        historySaved: true
+                    };
                     return;
                 }
                 if (hit.type.startsWith('scale')) {
-                    interactionRef.current = { mode: 'scale_layer', activeHandle: hit.type, startMouse: { x: e.clientX, y: e.clientY }, startView: view, startLayer: { ...hit.layer } };
+                    // 保存操作开始时的历史（使用setLayers的回调获取最新状态）
+                    setLayers(currentLayers => {
+                        saveHistory(currentLayers);
+                        return currentLayers;
+                    });
+                    interactionRef.current = { 
+                        mode: 'scale_layer', 
+                        activeHandle: hit.type, 
+                        startMouse: { x: e.clientX, y: e.clientY }, 
+                        startView: view, 
+                        startLayer: { ...hit.layer },
+                        historySaved: true
+                    };
                     return;
                 }
                 if (hit.type === 'body') {
@@ -2396,11 +2567,17 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                         setTextEditorPos(null);
                         setColorBlockEditorPos(null);
                     }
+                    // 保存操作开始时的历史（使用setLayers的回调获取最新状态）
+                    setLayers(currentLayers => {
+                        saveHistory(currentLayers);
+                        return currentLayers;
+                    });
                     interactionRef.current = {
                         mode: 'move_layer',
                         startMouse: { x: e.clientX, y: e.clientY },
                         startView: view,
-                        startLayer: { ...hit.layer }
+                        startLayer: { ...hit.layer },
+                        historySaved: true
                     };
                     return;
                 }
@@ -2495,8 +2672,24 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
     const handleMouseUp = () => {
         if (interactionRef.current.mode !== 'none') {
+            const mode = interactionRef.current.mode;
+            // 如果是图层操作（移动、旋转、缩放），保存最终状态到历史
+            if ((mode === 'move_layer' || mode === 'rotate_layer' || mode === 'scale_layer') && 
+                interactionRef.current.historySaved) {
+                // 操作完成，保存最终状态（使用setLayers的回调获取最新值）
+                setLayers(currentLayers => {
+                    saveHistory(currentLayers);
+                    return currentLayers;
+                });
+            }
             setPreviewVersion(v => v + 1);
-            interactionRef.current = { mode: 'none', startMouse: { x: 0, y: 0 }, startView: view, startLayer: null };
+            interactionRef.current = { 
+                mode: 'none', 
+                startMouse: { x: 0, y: 0 }, 
+                startView: view, 
+                startLayer: null,
+                historySaved: false
+            };
             setCursorStyle('default');
         }
     };
@@ -2543,16 +2736,15 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         const image = uploadedImages.find(img => img.id === imageId);
         setUploadedImages(prev => prev.filter(img => img.id !== imageId));
         if (image) {
-            setLayers(prev => prev.filter(l => !(l.type === 'image' && l.src === image.src)));
+            updateLayersWithHistory(prev => prev.filter(l => !(l.type === 'image' && l.src === image.src)));
             if (selectedLayerId && !layers.find(l => l.id === selectedLayerId)) {
                 setSelectedLayerId(null);
             }
-            setPreviewVersion(v => v + 1);
         }
     };
 
     const handleReorderLayers = (fromId: string, toId: string, insertPosition: 'above' | 'below' = 'below') => {
-        setLayers(prev => {
+        updateLayersWithHistory(prev => {
             const fromIndex = prev.findIndex(l => l.id === fromId);
             const toIndex = prev.findIndex(l => l.id === toId);
             if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) return prev;
@@ -2587,7 +2779,6 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             next.splice(targetIndex, 0, moved);
             return next;
         });
-        setPreviewVersion(v => v + 1);
     };
 
     if (!isOpen) return null;
@@ -2913,13 +3104,12 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 e.preventDefault();
-                                                setLayers(prev => prev.filter(l => l.id !== layer.id));
+                                                updateLayersWithHistory(prev => prev.filter(l => l.id !== layer.id));
                                                 if (selectedLayerId === layer.id) {
                                                     setSelectedLayerId(null);
                                                     setTextEditorPos(null);
                                                     setColorBlockEditorPos(null);
                                                 }
-                                                setPreviewVersion(v => v + 1);
                                             }}
                                             onMouseDown={(e) => {
                                                 // 阻止拖放事件在删除按钮上触发
@@ -2971,10 +3161,28 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                         </div>
                         <div className="h-4 w-px bg-gray-200"></div>
                         <div className="flex gap-2">
-                            <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="Undo">
+                            <button 
+                                onClick={handleUndo}
+                                disabled={historyIndex <= 0}
+                                className={`p-2 rounded-full transition-colors ${
+                                    historyIndex <= 0 
+                                        ? 'text-gray-300 cursor-not-allowed' 
+                                        : 'text-gray-500 hover:bg-gray-100'
+                                }`}
+                                title={historyIndex <= 0 ? '无法撤销' : '撤销 (Ctrl+Z)'}
+                            >
                                 <Undo2 size={16} />
                             </button>
-                            <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors" title="Redo">
+                            <button 
+                                onClick={handleRedo}
+                                disabled={historyIndex >= history.length - 1}
+                                className={`p-2 rounded-full transition-colors ${
+                                    historyIndex >= history.length - 1 
+                                        ? 'text-gray-300 cursor-not-allowed' 
+                                        : 'text-gray-500 hover:bg-gray-100'
+                                }`}
+                                title={historyIndex >= history.length - 1 ? '无法重做' : '重做 (Ctrl+Shift+Z)'}
+                            >
                                 <Redo2 size={16} />
                             </button>
                         </div>
