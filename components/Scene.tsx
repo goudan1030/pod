@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { OrbitControls, useGLTF, ContactShadows, Center, Environment } from '@react-three/drei';
+import { OrbitControls, useGLTF, Center, Environment } from '@react-three/drei';
 import * as THREE from 'three';
 import { PackagingState } from '../types';
 import { ZoomIn, ZoomOut, Maximize, Loader2 } from 'lucide-react';
@@ -352,11 +352,11 @@ const GradientBackground: React.FC = () => {
     const ctx = canvas.getContext('2d');
     
     if (ctx) {
-      // Create vertical gradient: darker at top (#9ca3af), lighter at bottom (#d1d5db)
+      // Create vertical gradient: darker at top, slightly darker overall
       const gradient = ctx.createLinearGradient(0, 0, 0, 512);
-      gradient.addColorStop(0, '#9ca3af'); // Darker gray at top
-      gradient.addColorStop(0.5, '#b8bcc5'); // Medium gray in middle
-      gradient.addColorStop(1, '#d1d5db'); // Lighter gray at bottom
+      gradient.addColorStop(0, '#6b7280'); // Darker gray at top (darker than before)
+      gradient.addColorStop(0.5, '#9ca3af'); // Medium gray in middle (darker)
+      gradient.addColorStop(1, '#9ca3af'); // Darker gray at bottom (darker than before)
       
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, 512, 512);
@@ -618,7 +618,6 @@ const Scene: React.FC<SceneProps> = ({ config, onModelClick }) => {
             <Center>
               <PackagingMesh config={config} onClick={onModelClick} />
             </Center>
-            <ContactShadows position={[0, -2.5, 0]} resolution={512} scale={10} blur={2} opacity={0.5} far={10} color="#000000" />
           </group>
           <CameraControls controlsRef={controlsRef} cameraRef={cameraRef} onZoomChange={setZoom} />
         </React.Suspense>
