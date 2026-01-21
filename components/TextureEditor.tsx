@@ -1225,6 +1225,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
 
     const regions = useMemo(() => getRegions(canvasConfig.width, canvasConfig.height), [getRegions, canvasConfig]);
     console.log('regions', regions);
+    
     // Actions
     const fitToScreen = useCallback(() => {
         if (containerRef.current) {
@@ -2395,6 +2396,20 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
     useEffect(() => {
         renderUI();
     }, [renderUI]);
+    
+    // 当编辑器打开且regions准备好时，立即渲染SVG区域
+    useEffect(() => {
+        if (isOpen && regions.length > 0) {
+            // 立即触发渲染，确保SVG区域可见
+            const timer = setTimeout(() => {
+                renderContent();
+                renderUI();
+                setPreviewVersion(v => v + 1);
+            }, 50);
+            
+            return () => clearTimeout(timer);
+        }
+    }, [isOpen, regions.length, renderContent, renderUI]);
 
     // Hit testing & Interaction Handlers (same as before)
     const getHitInfo = (clientX: number, clientY: number) => {
