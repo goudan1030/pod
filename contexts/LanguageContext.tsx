@@ -30,7 +30,6 @@ const translations: Record<Language, Record<string, string>> = {
         'dieline': '刀版',
         'video': '视频',
         'code': '代码',
-        'share': '分享',
         'close': '关闭',
         'ratio': '比例',
         'ratio1:1': '比例 1:1',
@@ -43,6 +42,23 @@ const translations: Record<Language, Record<string, string>> = {
         'quality': '质量',
         'highDefFastRender': '*高清, 渲染速度快',
         'renderExport': '渲染导出',
+        
+        // Dieline Export
+        'fileType': '文件类型',
+        'designFile': '设计文件',
+        'designFileDesc': '内含刀版及设计稿，直接可用于印刷。',
+        'dielineFile': '刀线文件',
+        'dielineFileDesc': '不包括艺术作品，在您喜欢的应用程序中打开刀线并完成设计。',
+        'colorMode': '颜色模式',
+        'cmyk': 'CMYK',
+        'rgb': 'RGB',
+        'exportNow': '立即导出',
+        
+        // Video Export
+        'style': '样式',
+        'duration': '时长',
+        'quickExport': '快速导出',
+        'detailsSkipped': '细节较少。',
         
         // Controls.tsx
         'appName': '包装设计工具',
@@ -72,7 +88,6 @@ const translations: Record<Language, Record<string, string>> = {
         
         // EditorSidebar.tsx
         'edit': '编辑',
-        'uploadImage': '上传图片',
         'clickToUploadImage': '点击上传图片',
         'supportFormats': '支持 JPG, PNG 格式',
         'adjustAssets': '调整素材',
@@ -81,9 +96,6 @@ const translations: Record<Language, Record<string, string>> = {
         'customComponent': '自定义部件',
         'modelId': '模型ID',
         'parts': '部件',
-        'adjustAssets': '调整素材',
-        'clickToUploadImage': '点击上传图片',
-        'supportFormats': '支持 JPG, PNG 格式',
         'addToCanvas': '添加到画布',
         'delete': '删除',
         'imageLayer': '图片图层',
@@ -132,7 +144,6 @@ const translations: Record<Language, Record<string, string>> = {
         'dieline': 'Dieline',
         'video': 'Video',
         'code': 'Code',
-        'share': 'Share',
         'close': 'Close',
         'ratio': 'Ratio',
         'ratio1:1': 'Ratio 1:1',
@@ -145,6 +156,23 @@ const translations: Record<Language, Record<string, string>> = {
         'quality': 'Quality',
         'highDefFastRender': '*High definition, fast rendering speed',
         'renderExport': 'Render Export',
+        
+        // Dieline Export
+        'fileType': 'File Type',
+        'designFile': 'Design File',
+        'designFileDesc': 'Contains cutlines and design, ready for printing.',
+        'dielineFile': 'Dieline File',
+        'dielineFileDesc': 'Not included artwork, open cutlines in your favorite app and complete the design.',
+        'colorMode': 'Color Mode',
+        'cmyk': 'CMYK',
+        'rgb': 'RGB',
+        'exportNow': 'Export Now',
+        
+        // Video Export
+        'style': 'Style',
+        'duration': 'Duration',
+        'quickExport': 'Quick Export',
+        'detailsSkipped': 'Details skipped.',
         
         // Controls.tsx
         'appName': 'Packaging Design Tool',
@@ -174,7 +202,6 @@ const translations: Record<Language, Record<string, string>> = {
         
         // EditorSidebar.tsx
         'edit': 'Edit',
-        'uploadImage': 'Upload Image',
         'clickToUploadImage': 'Click to upload image',
         'supportFormats': 'Supports JPG, PNG formats',
         'adjustAssets': 'Adjust Assets',
@@ -183,9 +210,6 @@ const translations: Record<Language, Record<string, string>> = {
         'customComponent': 'Custom Component',
         'modelId': 'Model ID',
         'parts': 'parts',
-        'adjustAssets': 'Adjust Assets',
-        'clickToUploadImage': 'Click to upload image',
-        'supportFormats': 'Supports JPG, PNG formats',
         'addToCanvas': 'Add to Canvas',
         'delete': 'Delete',
         'imageLayer': 'Image Layer',

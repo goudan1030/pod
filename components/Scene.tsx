@@ -63,7 +63,10 @@ const GLBModel: React.FC<{ url: string; config: PackagingState; materialProps: a
             map: materialProps.map,
             transparent: true,
             alphaTest: 0.05,
-            depthWrite: true
+            depthWrite: true,
+            polygonOffset: true,
+            polygonOffsetFactor: -1, // Draw on top of the base mesh to prevent z-fighting
+            polygonOffsetUnits: -1
           });
 
           if (mat.map) {
@@ -515,7 +518,7 @@ const Scene: React.FC<SceneProps> = ({ config, onModelClick }) => {
 
           {/* Subtle balanced lights */}
           <ambientLight intensity={0.4} />
-          <directionalLight position={[5, 10, 5]} intensity={0.8} castShadow shadow-mapSize={[1024, 1024]} />
+          {/* <directionalLight position={[5, 10, 5]} intensity={0.8} castShadow shadow-mapSize={[1024, 1024]} /> */}
           <directionalLight position={[-5, 5, 5]} intensity={0.3} />
           <group position={[0, 0, 0]}>
             <Center>

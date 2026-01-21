@@ -855,7 +855,7 @@ const PreviewScene: React.FC<{ config: PackagingState; canvasRef: React.RefObjec
 
             {/* Subtle balanced lights */}
             <ambientLight intensity={0.4} />
-            <directionalLight position={[5, 10, 5]} intensity={0.8} castShadow shadow-mapSize={[1024, 1024]} />
+            {/* <directionalLight position={[5, 10, 5]} intensity={0.8} castShadow shadow-mapSize={[1024, 1024]} /> */}
             <directionalLight position={[-5, 5, 5]} intensity={0.3} />
             <Center>
                 <PackagingMesh config={{ ...config, textureUrl: null }} overrideTexture={canvasTexture} />
@@ -1237,6 +1237,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
     useEffect(() => {
         if (isOpen) {
             setTimeout(fitToScreen, 10);
+            // 确保编辑器打开时立即触发一次渲染
+            setPreviewVersion(v => v + 1);
         }
     }, [isOpen, fitToScreen]);
 
@@ -1501,6 +1503,12 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             
             // 异步加载图片图层
             if (imageLayers.length > 0) {
+                // 先设置非图片图层，让它们立即显示
+                if (restoredLayers.length > 0) {
+                    setLayers([...restoredLayers]);
+                    setPreviewVersion(v => v + 1);
+                }
+                
                 let loadedCount = 0;
                 imageLayers.forEach(layer => {
                     const img = new Image();
@@ -1510,7 +1518,6 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                             ...layer,
                             imgElement: img,
                         } as Layer;
-                        restoredLayers.push(restoredLayer);
                         
                         // 添加到已上传图片列表
                         if (!restoredImages.find(img => img.src === layer.src)) {
@@ -1523,18 +1530,36 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                         }
                         
                         loadedCount++;
-                        // 当所有图片图层加载完成后，更新状态
+                        
+                        // 每次图片加载完成都更新图层列表，让已加载的图片立即显示
+                        setLayers(prev => {
+                            // 移除可能存在的旧图层（避免重复）
+                            const filtered = prev.filter(l => l.id !== layer.id);
+                            // 添加新加载的图层
+                            return [...filtered, restoredLayer];
+                        });
+                        
+                        // 立即触发画布重新渲染
+                        setPreviewVersion(v => v + 1);
+                        
+                        // 当所有图片图层加载完成后，更新已上传图片列表
                         if (loadedCount === imageLayers.length) {
-                            setLayers([...restoredLayers]);
                             setUploadedImages(restoredImages);
                         }
                     };
                     img.onerror = () => {
                         // 如果图片加载失败，仍然添加图层（使用src作为fallback）
-                        restoredLayers.push(layer as Layer);
                         loadedCount++;
+                        
+                        setLayers(prev => {
+                            const filtered = prev.filter(l => l.id !== layer.id);
+                            return [...filtered, layer as Layer];
+                        });
+                        
+                        // 立即触发画布重新渲染
+                        setPreviewVersion(v => v + 1);
+                        
                         if (loadedCount === imageLayers.length) {
-                            setLayers([...restoredLayers]);
                             setUploadedImages(restoredImages);
                         }
                     };
@@ -1542,6 +1567,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             } else {
                 // 如果没有图片图层，直接设置
                 setLayers(restoredLayers);
+                // 立即触发画布重新渲染
+                setPreviewVersion(v => v + 1);
             }
         } else if (initialImage && uploadedImages.length === 0 && layers.length === 0 && !initialLayers) {
             // 兼容旧逻辑：如果有初始图片但没有图层数据，使用旧方式
@@ -1902,14 +1929,14 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 if (scaleX !== 1 || scaleY !== 1) {
                     ctx.scale(scaleX, scaleY);
                     ctx.clip(p);
-                    // 填充背景（在缩放后的 SVG 坐标系中）
-                    ctx.fillStyle = faceColors[region.id] || config.color;
+                    // 填充背景（在缩放后的 SVG 坐标系中）- 默认白色
+                    ctx.fillStyle = faceColors[region.id] || '#ffffff';
                     ctx.fillRect(0, 0, svgCanvasWidth, svgCanvasHeight);
                 } else {
                     // 尺寸相同，直接使用路径坐标
                     ctx.clip(p);
-                    // 填充背景（在画布坐标系中）
-                    ctx.fillStyle = faceColors[region.id] || config.color;
+                    // 填充背景（在画布坐标系中）- 默认白色
+                    ctx.fillStyle = faceColors[region.id] || '#ffffff';
                     ctx.fillRect(0, 0, canvasConfig.width, canvasConfig.height);
                 }
             } else {
@@ -1921,7 +1948,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                     ctx.rect(region.x, region.y, region.w, region.h);
                 }
                 ctx.clip();
-                ctx.fillStyle = faceColors[region.id] || config.color;
+                // 默认白色填充
+                ctx.fillStyle = faceColors[region.id] || '#ffffff';
                 ctx.fillRect(region.x, region.y, region.w, region.h);
             }
 
@@ -1932,35 +1960,38 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 if (layerRegion && layerRegion.id === region.id) {
                     ctx.save();
                     
-                    // 图层坐标始终在画布坐标系中
-                    // 如果上面应用了缩放（scaleX, scaleY），需要将图层坐标转换到缩放后的空间
+                    // 计算缩放比例（如果存在）
+                    let scaleX = 1;
+                    let scaleY = 1;
                     if (pathToUse) {
                         const svgCanvasWidth = pathToUse.w || canvasConfig.width;
                         const svgCanvasHeight = pathToUse.h || canvasConfig.height;
-                        const scaleX = canvasConfig.width / svgCanvasWidth;
-                        const scaleY = canvasConfig.height / svgCanvasHeight;
-                        
-                        // 如果应用了缩放，图层坐标需要除以缩放比例
-                        // 因为当前 transform 已经包含了缩放
-                        if (scaleX !== 1 || scaleY !== 1) {
-                            // 当前 transform 已经是 scale(scaleX, scaleY)
-                            // 所以图层坐标需要除以缩放比例
-                            ctx.translate(layer.x / scaleX, layer.y / scaleY);
-                        } else {
-                            // 坐标系统相同，直接使用
-                            ctx.translate(layer.x, layer.y);
-                        }
+                        scaleX = canvasConfig.width / svgCanvasWidth;
+                        scaleY = canvasConfig.height / svgCanvasHeight;
+                    }
+                    
+                    // 图层坐标始终在画布坐标系中
+                    // 如果上面应用了缩放（scaleX, scaleY），需要将图层坐标转换到缩放后的空间
+                    if (pathToUse && (scaleX !== 1 || scaleY !== 1)) {
+                        // 当前 transform 已经是 scale(scaleX, scaleY)
+                        // 所以图层坐标需要除以缩放比例
+                        ctx.translate(layer.x / scaleX, layer.y / scaleY);
                     } else {
-                        // 没有路径，直接使用画布坐标
+                        // 坐标系统相同，直接使用
                         ctx.translate(layer.x, layer.y);
                     }
                     
                     ctx.rotate((layer.rotation * Math.PI) / 180);
                     ctx.scale(layer.scale, layer.scale);
 
+                    // 如果应用了SVG缩放，图层的尺寸也需要相应缩放
+                    // 因为当前坐标系已经被scale(scaleX, scaleY)缩放，所以需要将图层尺寸除以缩放比例
+                    const layerWidth = pathToUse && (scaleX !== 1 || scaleY !== 1) ? layer.width / scaleX : layer.width;
+                    const layerHeight = pathToUse && (scaleX !== 1 || scaleY !== 1) ? layer.height / scaleY : layer.height;
+
                     if (layer.type === 'color') {
                         ctx.fillStyle = layer.src;
-                        ctx.fillRect(-layer.width / 2, -layer.height / 2, layer.width, layer.height);
+                        ctx.fillRect(-layerWidth / 2, -layerHeight / 2, layerWidth, layerHeight);
                     } else if (layer.type === 'text') {
                         const textProps = layer.textProps || { 
                             fontSize: 24, 
@@ -1977,7 +2008,10 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                         // 构建字体字符串
                         const fontWeight = textProps.fontWeight || 'normal';
                         const fontStyle = textProps.fontStyle || 'normal';
-                        const fontSize = textProps.fontSize || 24;
+                        // 字体大小也需要缩放
+                        const fontSize = (pathToUse && (scaleX !== 1 || scaleY !== 1)) 
+                            ? (textProps.fontSize || 24) / Math.min(scaleX, scaleY)
+                            : (textProps.fontSize || 24);
                         const fontFamily = textProps.fontFamily || 'Arial';
                         ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
                         
@@ -1987,7 +2021,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                         ctx.textBaseline = 'middle';
                         
                         const text = layer.src || '文字';
-                        const x = textAlign === 'left' ? -layer.width / 2 : textAlign === 'right' ? layer.width / 2 : 0;
+                        const x = textAlign === 'left' ? -layerWidth / 2 : textAlign === 'right' ? layerWidth / 2 : 0;
                         
                         // 绘制文本
                         if (textProps.textDecoration === 'underline') {
@@ -2008,7 +2042,17 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                             ctx.fillText(text, x, 0);
                         }
                     } else if (layer.imgElement) {
-                        ctx.drawImage(layer.imgElement, -layer.width / 2, -layer.height / 2);
+                        // 由于SVG区域的ctx.scale(scaleX, scaleY)仍然有效，
+                        // 而我们已经将layerWidth和layerHeight除以了scaleX/scaleY，
+                        // 所以drawImage的尺寸参数应该使用layerWidth和layerHeight
+                        // 这样经过scaleX/scaleY缩放后，会得到正确的尺寸
+                        ctx.drawImage(
+                            layer.imgElement, 
+                            -layerWidth / 2, 
+                            -layerHeight / 2,
+                            layerWidth,
+                            layerHeight
+                        );
                     }
                     ctx.restore();
                 }
@@ -2112,18 +2156,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             ctx.restore();
         }
 
-        // Guides (Dashed Lines)
-        ctx.save();
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
-        ctx.lineWidth = 1.5 / view.scale;
-        ctx.setLineDash([10 / view.scale, 10 / view.scale]);
-
-        // Draw the region boxes
-        regions.forEach(r => {
-            ctx.strokeRect(r.x, r.y, r.w, r.h);
-        });
-
-        ctx.restore();
+        // Region borders removed for cleaner preview
 
         // Gizmos (Selection Box)
         if (selectedLayerId) {
@@ -2527,30 +2560,29 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
             const next = [...prev];
             const [moved] = next.splice(fromIndex, 1);
             
-            // 由于图层列表是反向显示的，需要调整插入逻辑
-            // 在UI中，"above"表示在上方（视觉上），但在数组中实际是更小的索引
-            // "below"表示在下方（视觉上），但在数组中实际是更大的索引
-            let targetIndex = toIndex;
-            if (fromIndex < toIndex) {
-                // 从前面移到后面
-                if (insertPosition === 'above') {
-                    targetIndex = toIndex; // 插入到目标位置之前
-                } else {
-                    targetIndex = toIndex + 1; // 插入到目标位置之后
-                }
+            // 计算目标索引
+            // 由于UI中图层列表是反向显示的（使用reverse()），需要转换视觉位置到数组索引
+            // 数组索引：0（底层）... n-1（顶层）
+            // UI显示（reverse后）：n-1（顶层）... 0（底层）
+            // 
+            // 视觉上的"above"（上方）= 数组中的更大索引（更靠后）
+            // 视觉上的"below"（下方）= 数组中的更小索引（更靠前）
+            let targetIndex: number;
+            
+            // 先计算移除源元素后的新toIndex
+            const newToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+            
+            if (insertPosition === 'above') {
+                // 视觉上的"above"（上方）= 插入到目标元素之后 = 数组索引 +1
+                targetIndex = newToIndex + 1;
             } else {
-                // 从后面移到前面
-                if (insertPosition === 'above') {
-                    targetIndex = toIndex; // 插入到目标位置之前
-                } else {
-                    targetIndex = toIndex + 1; // 插入到目标位置之后
-                }
+                // 视觉上的"below"（下方）= 插入到目标元素之前 = 数组索引
+                targetIndex = newToIndex;
             }
             
-            // 如果目标索引超出范围，调整到末尾
-            if (targetIndex > next.length) {
-                targetIndex = next.length;
-            }
+            // 确保索引在有效范围内
+            if (targetIndex < 0) targetIndex = 0;
+            if (targetIndex > next.length) targetIndex = next.length;
             
             next.splice(targetIndex, 0, moved);
             return next;
@@ -2739,9 +2771,12 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                                     e.dataTransfer.effectAllowed = 'move';
                                                     e.dataTransfer.setDragImage(e.currentTarget.cloneNode(true) as Element, 0, 0);
                                                 }
+                                                // 阻止点击事件在拖拽时触发
+                                                e.stopPropagation();
                                             }}
                                             onDragOver={(e) => {
                                                 e.preventDefault();
+                                                e.stopPropagation();
                                                 if (draggingLayerIdRef.current && draggingLayerIdRef.current !== layer.id) {
                                                     const rect = e.currentTarget.getBoundingClientRect();
                                                     const mouseY = e.clientY;
@@ -2757,6 +2792,10 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                                     }
                                                 }
                                             }}
+                                            onDragEnter={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                            }}
                                             onDragLeave={(e) => {
                                                 // 只有当鼠标真正离开元素时才清除状态
                                                 const rect = e.currentTarget.getBoundingClientRect();
@@ -2768,6 +2807,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                             }}
                                             onDrop={(e) => {
                                                 e.preventDefault();
+                                                e.stopPropagation();
                                                 if (draggingLayerIdRef.current && draggingLayerIdRef.current !== layer.id && insertPosition) {
                                                     handleReorderLayers(draggingLayerIdRef.current, layer.id, insertPosition);
                                                 }
@@ -2775,12 +2815,17 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                                 setDragOverLayerId(null);
                                                 setInsertPosition(null);
                                             }}
-                                            onDragEnd={() => {
+                                            onDragEnd={(e) => {
                                                 draggingLayerIdRef.current = null;
                                                 setDragOverLayerId(null);
                                                 setInsertPosition(null);
+                                                e.stopPropagation();
                                             }}
-                                        onClick={() => {
+                                        onClick={(e) => {
+                                            // 如果正在拖拽，不触发点击事件
+                                            if (draggingLayerIdRef.current) {
+                                                return;
+                                            }
                                             setSelectedLayerId(layer.id);
                                             if (containerRef.current) {
                                                 const rect = containerRef.current.getBoundingClientRect();
@@ -2817,7 +2862,13 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                                         : 'bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50'
                                         }`}
                                     >
-                                        <div className="cursor-grab text-gray-300 hover:text-gray-500">
+                                        <div 
+                                            className="cursor-grab text-gray-300 hover:text-gray-500"
+                                            onMouseDown={(e) => {
+                                                // 确保拖拽手柄可以正常拖动
+                                                e.stopPropagation();
+                                            }}
+                                        >
                                             <GripVertical size={14} />
                                         </div>
                                         <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden border border-gray-200 shrink-0 relative flex items-center justify-center">
@@ -2828,6 +2879,14 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                                         type="color"
                                                         value={layer.src}
                                                         onChange={(e) => updateColorLayer(layer.id, e.target.value)}
+                                                        onMouseDown={(e) => {
+                                                            // 阻止拖放事件在颜色选择器上触发
+                                                            e.stopPropagation();
+                                                        }}
+                                                        onClick={(e) => {
+                                                            // 阻止点击事件冒泡，避免触发图层选择
+                                                            e.stopPropagation();
+                                                        }}
                                                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                                     />
                                                 </>
@@ -2853,6 +2912,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
+                                                e.preventDefault();
                                                 setLayers(prev => prev.filter(l => l.id !== layer.id));
                                                 if (selectedLayerId === layer.id) {
                                                     setSelectedLayerId(null);
@@ -2860,6 +2920,10 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                                     setColorBlockEditorPos(null);
                                                 }
                                                 setPreviewVersion(v => v + 1);
+                                            }}
+                                            onMouseDown={(e) => {
+                                                // 阻止拖放事件在删除按钮上触发
+                                                e.stopPropagation();
                                             }}
                                             className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-all"
                                         >
