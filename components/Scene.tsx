@@ -390,12 +390,61 @@ const CameraControls: React.FC<{
   onZoomChange: (zoom: number) => void;
 }> = ({ controlsRef, cameraRef, onZoomChange }) => {
   const { camera } = useThree();
+  const [autoRotate, setAutoRotate] = useState(true);
+  const autoRotateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const userInteractedRef = useRef(false);
 
   useEffect(() => {
     if (camera instanceof THREE.PerspectiveCamera) {
       cameraRef.current = camera;
     }
   }, [camera, cameraRef]);
+
+  // 初始3秒自动旋转，然后停止
+  useEffect(() => {
+    // 延迟一点确保controls已经初始化
+    const initTimer = setTimeout(() => {
+      setAutoRotate(true);
+      userInteractedRef.current = false;
+      
+      // 3秒后停止自动旋转
+      autoRotateTimerRef.current = setTimeout(() => {
+        if (!userInteractedRef.current) {
+          setAutoRotate(false);
+        }
+      }, 3000);
+    }, 100);
+
+    return () => {
+      clearTimeout(initTimer);
+      if (autoRotateTimerRef.current) {
+        clearTimeout(autoRotateTimerRef.current);
+      }
+    };
+  }, []);
+
+  // 监听用户交互，立即停止自动旋转
+  useEffect(() => {
+    if (!controlsRef.current) return;
+
+    const handleStart = () => {
+      userInteractedRef.current = true;
+      setAutoRotate(false);
+      if (autoRotateTimerRef.current) {
+        clearTimeout(autoRotateTimerRef.current);
+        autoRotateTimerRef.current = null;
+      }
+    };
+
+    const controls = controlsRef.current;
+    // OrbitControls会在用户交互时触发'start'事件
+    if (controls.addEventListener) {
+      controls.addEventListener('start', handleStart);
+      return () => {
+        controls.removeEventListener('start', handleStart);
+      };
+    }
+  }, [controlsRef]);
 
   useFrame(() => {
     if (cameraRef.current && controlsRef.current) {
@@ -429,6 +478,8 @@ const CameraControls: React.FC<{
       enableZoom={true}
       enablePan={true}
       enableRotate={true}
+      autoRotate={autoRotate}
+      autoRotateSpeed={40} // 3秒旋转一周 (默认2.0约30秒一周，3秒需要约6.67)
     />
   );
 };
