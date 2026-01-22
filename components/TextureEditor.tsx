@@ -1395,9 +1395,19 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 return;
             }
             
-            if ((e.key === 'Delete' || e.key === 'Backspace') && selectedLayerId) {
-                updateLayersWithHistory(prev => prev.filter(l => l.id !== selectedLayerId));
-                setSelectedLayerId(null);
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                const active = document.activeElement;
+                const isEditingText = active && (
+                    active.tagName === 'INPUT' ||
+                    active.tagName === 'TEXTAREA' ||
+                    (active as HTMLElement).isContentEditable === true
+                );
+                if (isEditingText) return;
+
+                if (selectedLayerId) {
+                    updateLayersWithHistory(prev => prev.filter(l => l.id !== selectedLayerId));
+                    setSelectedLayerId(null);
+                }
             }
         };
         window.addEventListener('keydown', handleKeyDown);
