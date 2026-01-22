@@ -38,6 +38,8 @@ export interface PackagingState {
   material?: string; // Material type: '棉基', '涤纶', etc.
   // Dynamic SVG paths extracted from the model (Key: regionId/meshName)
   dynamicSVGPaths?: Record<string, { d: string, w: number, h: number }>;
+  // Original SVG dieline file URL (if uploaded)
+  dielineFileUrl?: string;
   // List of mesh names to hide in the 3D scene
   hiddenMeshes?: string[];
   // Layer data for texture editor (preserves editable layers instead of rasterized image)

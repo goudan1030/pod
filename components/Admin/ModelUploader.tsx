@@ -97,6 +97,7 @@ const ModelUploader: React.FC = () => {
 
     const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [loadedModel, setLoadedModel] = useState<any | null>(null); // 保存加载的模型数据
     const [fileStats, setFileStats] = useState<{ size: string; name: string } | null>(null);
 
     const [name, setName] = useState('');
@@ -130,24 +131,27 @@ const ModelUploader: React.FC = () => {
             if (isEditing && id) {
                 setProcessingStage('Loading Model Data...');
                 setIsProcessing(true);
-                const model = await storageService.getModel(id);
-                if (model) {
-                    setName(model.name);
-                    setCategoryId(model.categoryId);
-                    setPreviewUrl(model.file);
-                    setThumbnailPreview(model.thumbnail); // Load existing thumbnail
+                const loadedModel = await storageService.getModel(id);
+                if (loadedModel) {
+                    setLoadedModel(loadedModel); // 保存到state以便UI访问
+                    setName(loadedModel.name);
+                    setCategoryId(loadedModel.categoryId);
+                    setPreviewUrl(loadedModel.file);
+                    setThumbnailPreview(loadedModel.thumbnail); // Load existing thumbnail
 
-                    if (model.config) {
-                        if (model.config.dynamicSVGPaths) {
-                            setExtractedPaths(model.config.dynamicSVGPaths);
+                    if (loadedModel.config) {
+                        if (loadedModel.config.dynamicSVGPaths) {
+                            setExtractedPaths(loadedModel.config.dynamicSVGPaths);
                         }
-                        if (model.config.hiddenMeshes) {
-                            setHiddenMeshes(new Set(model.config.hiddenMeshes));
+                        // 注意：dielineFileUrl会在保存时自动保留（见第448-450行）
+                        // 不需要在这里设置dielineFile state，因为那是用于新上传的文件
+                        if (loadedModel.config.hiddenMeshes) {
+                            setHiddenMeshes(new Set(loadedModel.config.hiddenMeshes));
                         }
                     }
 
                     // Re-analyze model to get mesh list
-                    analyzeModel(model.file);
+                    analyzeModel(loadedModel.file);
                 }
                 setIsProcessing(false);
             }
@@ -435,6 +439,17 @@ const ModelUploader: React.FC = () => {
                 thumbnailUrl = `https://placehold.co/400x400/f1f5f9/64748b?text=${encodeURIComponent(name)}`;
             }
 
+            // 3. Upload Dieline SVG File if provided
+            let dielineFileUrl: string | undefined = undefined;
+            if (dielineFile) {
+                setProcessingStage('Uploading Dieline SVG...');
+                const dUrl = await storageService.uploadFile(dielineFile);
+                if (dUrl) dielineFileUrl = dUrl;
+            } else if (isEditing && loadedModel?.config?.dielineFileUrl) {
+                // Keep existing dieline file URL when editing
+                dielineFileUrl = loadedModel.config.dielineFileUrl;
+            }
+
             setProcessingStage('Saving Metadata...');
 
             const modelData = {
@@ -448,6 +463,7 @@ const ModelUploader: React.FC = () => {
                     category: finalCategoryId,
                     customModelUrl: publicUrl,
                     dynamicSVGPaths: extractedPaths,
+                    dielineFileUrl: dielineFileUrl, // 保存SVG文件URL
                     hiddenMeshes: Array.from(hiddenMeshes),
                     // Default values
                     color: '#ffffff',
@@ -600,16 +616,23 @@ const ModelUploader: React.FC = () => {
                             上传已从 AI/PDF/DXF 导出的 SVG 刀板，系统会自动识别其中标记了 <code>data-region-id</code> 的路径作为可编辑区域。
                         </p>
                         {!dielineFile ? (
-                            <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition">
-                                <Upload className="text-gray-400 mb-2" size={22} />
-                                <span className="text-xs text-gray-600">点击上传 .svg 刀板文件</span>
-                                <input
-                                    type="file"
-                                    accept=".svg"
-                                    onChange={handleDielineSelect}
-                                    className="hidden"
-                                />
-                            </label>
+                            <div>
+                                <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                                    <Upload className="text-gray-400 mb-2" size={22} />
+                                    <span className="text-xs text-gray-600">点击上传 .svg 刀板文件</span>
+                                    <input
+                                        type="file"
+                                        accept=".svg"
+                                        onChange={handleDielineSelect}
+                                        className="hidden"
+                                    />
+                                </label>
+                                {isEditing && loadedModel?.config?.dielineFileUrl && (
+                                    <div className="mt-2 text-xs text-blue-600 text-center">
+                                        ✓ 已保存SVG文件，重新上传将替换现有文件
+                                    </div>
+                                )}
+                            </div>
                         ) : (
                             <div className="flex items-center justify-between p-3 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100">
                                 <div className="truncate pr-2">

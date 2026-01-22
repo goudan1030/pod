@@ -95,7 +95,21 @@ const HomeLayout: React.FC<HomeLayoutProps> = ({ onSelectModel }) => {
                 <div className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-8 flex-none z-10">
                     <div className="flex items-center gap-3">
                         <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600">
-                            {selectedCategory === 'all' ? t('allModels') : t(`category.${selectedCategory}`) || categories.find(c => c.id === selectedCategory)?.displayName || categories.find(c => c.id === selectedCategory)?.name}
+                            {selectedCategory === 'all' 
+                                ? t('allModels') 
+                                : (() => {
+                                    // 优先使用 displayName（用户输入的友好名称）
+                                    const category = categories.find(c => c.id === selectedCategory);
+                                    if (category?.displayName) {
+                                        return category.displayName;
+                                    }
+                                    // 如果 displayName 不存在，尝试翻译
+                                    const translated = t(`category.${selectedCategory}`);
+                                    // 如果翻译结果等于 key 本身，说明没找到翻译，使用 name 或 id
+                                    return translated !== `category.${selectedCategory}` 
+                                        ? translated 
+                                        : (category?.name || selectedCategory);
+                                })()}
                         </span>
                         <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-md font-medium">
                             {filteredModels.length} {t('items')}

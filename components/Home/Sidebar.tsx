@@ -28,7 +28,15 @@ const Sidebar: React.FC<SidebarProps> = ({ categories, selectedCategory, onSelec
     
     // 获取分类的翻译名称
     const getCategoryName = (categoryId: string) => {
-        return t(`category.${categoryId}`) || categoryId;
+        // 优先使用 displayName（用户输入的友好名称）
+        const category = categories.find(c => c.id === categoryId);
+        if (category?.displayName) {
+            return category.displayName;
+        }
+        // 如果 displayName 不存在，尝试翻译
+        const translated = t(`category.${categoryId}`);
+        // 如果翻译结果等于 key 本身，说明没找到翻译，使用 categoryId
+        return translated !== `category.${categoryId}` ? translated : categoryId;
     };
     
     return (

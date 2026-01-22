@@ -275,35 +275,417 @@ const Designer: React.FC = () => {
         });
     };
 
+    // 区域分类函数（共享）
+    const categorizeRegion = (regionId: string): { type: string, priority: number } => {
+        const id = regionId.toLowerCase();
+        if (id.includes('front') || id.includes('region_1') || id === 'region_1') {
+            return { type: 'front', priority: 1 };
+        }
+        if (id.includes('back') || id.includes('region_4') || id === 'region_4') {
+            return { type: 'back', priority: 2 };
+        }
+        if (id.includes('sleeve') || id.includes('region_2') || id.includes('region_3') || 
+            id === 'region_2' || id === 'region_3') {
+            return { type: 'sleeve', priority: 3 };
+        }
+        if (id.includes('collar')) {
+            return { type: 'collar', priority: 4 };
+        }
+        return { type: 'other', priority: 5 };
+    };
+    
+    // 区域排序函数（共享）
+    const sortRegions = (regions: Array<[string, { d: string, w: number, h: number }]>) => {
+        return [...regions].sort((a, b) => {
+            const catA = categorizeRegion(a[0]);
+            const catB = categorizeRegion(b[0]);
+            if (catA.priority !== catB.priority) {
+                return catA.priority - catB.priority;
+            }
+            return (b[1].w * b[1].h) - (a[1].w * a[1].h);
+        });
+    };
+    
+    // 生成预览用的动态SVG（同步版本，用于React渲染）
+    const generatePreviewDielineSVG = (dynamicPaths: Record<string, { d: string, w: number, h: number }>) => {
+        const strokeColor = dielineColorMode === 'cmyk' ? '#00FF00' : '#000000';
+        const strokeWidth = 4;
+        const strokeDasharray = dielineType === 'cutline' ? '10,5' : '0';
+        
+        const regions = Object.entries(dynamicPaths);
+        
+        console.log('🔍 预览生成 - 发现区域数量:', regions.length);
+        
+        if (regions.length === 0) {
+            return null;
+        }
+        
+        // 按类型和优先级排序
+        const sortedRegions = sortRegions(regions);
+        
+        // 布局参数
+        const padding = 40;
+        const gap = 20; // 减少间距
+        let currentX = padding;
+        let currentY = padding;
+        let maxRowHeight = 0;
+        const maxRegionWidth = Math.max(...regions.map(([_, data]) => data.w));
+        const maxWidth = Math.max(2500, maxRegionWidth * 2 + padding * 2);
+        
+        // 颜色映射
+        const colorMap: Record<number, string> = {
+            0: '#00ff00',
+            1: '#0088ff',
+            2: '#ff6600',
+            3: '#ff00ff',
+            4: '#ffff00',
+        };
+        
+        const patternDefs: React.ReactElement[] = [];
+        const pathGroups: React.ReactElement[] = [];
+        
+        // 使用排序后的区域列表
+        // 使用排序后的区域列表进行布局
+        sortedRegions.forEach(([regionId, pathData], index) => {
+            const regionWidth = pathData.w;
+            const regionHeight = pathData.h;
+            
+            // 验证数据有效性
+            if (!pathData.d || !pathData.d.trim()) {
+                console.warn(`⚠️ 预览 - 区域 ${regionId} 的路径数据为空，跳过`);
+                return;
+            }
+            
+            if (!regionWidth || !regionHeight || regionWidth <= 0 || regionHeight <= 0) {
+                console.warn(`⚠️ 预览 - 区域 ${regionId} 的尺寸无效 (${regionWidth}x${regionHeight})，跳过`);
+                return;
+            }
+            
+            if (currentX + regionWidth + padding > maxWidth) {
+                currentX = padding;
+                currentY += maxRowHeight + gap;
+                maxRowHeight = 0;
+            }
+            
+            maxRowHeight = Math.max(maxRowHeight, regionHeight);
+            
+            // 生成纹理pattern
+            if (dielineType === 'design' && config.textureUrl) {
+                const patternId = `preview_texture_${regionId.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                patternDefs.push(
+                    <pattern key={patternId} id={patternId} patternUnits="userSpaceOnUse" width={regionWidth} height={regionHeight}>
+                        <image href={config.textureUrl} x="0" y="0" width={regionWidth} height={regionHeight} preserveAspectRatio="xMidYMid slice"/>
+                    </pattern>
+                );
+            }
+            
+            const fillColor = dielineType === 'design' && config.textureUrl
+                ? `url(#preview_texture_${regionId.replace(/[^a-zA-Z0-9]/g, '_')})`
+                : '#f0f0f0';
+            
+            const regionStrokeColor = colorMap[index % Object.keys(colorMap).length] || strokeColor;
+            const textX = regionWidth / 2;
+            const textY = regionHeight / 2;
+            const fontSize = Math.min(regionWidth, regionHeight) / 20;
+            
+            // 确保路径数据有效
+            const sanitizedPath = pathData.d?.trim();
+            if (!sanitizedPath || sanitizedPath.length === 0) {
+                console.warn(`⚠️ 预览 - 区域 ${regionId} 的路径为空，跳过`);
+                return;
+            }
+            
+            pathGroups.push(
+                <g key={regionId} id={`preview_${regionId.replace(/[^a-zA-Z0-9]/g, '_')}`} transform={`translate(${currentX}, ${currentY})`}>
+                    <path 
+                        d={sanitizedPath}
+                        fill={fillColor}
+                        stroke={regionStrokeColor}
+                        strokeWidth={strokeWidth}
+                        strokeDasharray={strokeDasharray}
+                    />
+                    <text x={textX} y={textY} fontSize={Math.max(12, fontSize)} fill="#999" textAnchor="middle" fontWeight="bold">
+                        {regionId}
+                    </text>
+                </g>
+            );
+            
+            currentX += regionWidth + gap;
+        });
+        
+        // 计算总尺寸 - 使用实际布局后的尺寸
+        const actualTotalWidth = Math.max(
+            currentX, // 当前行的结束位置
+            ...sortedRegions.map(([_, pathData]) => pathData.w + padding * 2) // 至少能容纳最大的单个区域
+        );
+        const totalWidth = actualTotalWidth;
+        const totalHeight = currentY + maxRowHeight + padding;
+        
+        return { totalWidth, totalHeight, patternDefs, pathGroups };
+    };
+    
+    // 从dynamicSVGPaths生成动态SVG布局
+    const generateDynamicDielineSVG = async (dynamicPaths: Record<string, { d: string, w: number, h: number }>) => {
+        const strokeColor = dielineColorMode === 'cmyk' ? '#00FF00' : '#000000';
+        const strokeWidth = 2;
+        const strokeDasharray = dielineType === 'cutline' ? '10,5' : '0';
+        
+        // 画布尺寸
+        const canvasWidth = 2048;
+        const canvasHeight = 1024;
+        
+        // 获取所有区域
+        const regions = Object.entries(dynamicPaths);
+        
+        console.log('🔍 刀版导出 - 发现区域数量:', regions.length);
+        console.log('🔍 区域列表:', regions.map(([id, data]) => ({ id, width: data.w, height: data.h })));
+        
+        if (regions.length === 0) {
+            // 如果没有动态路径，返回null，使用回退方案
+            console.warn('⚠️ 没有找到动态SVG路径，使用回退方案');
+            return null;
+        }
+        
+        // 按类型和优先级排序
+        const sortedRegions = sortRegions(regions);
+        console.log('📋 排序后的区域顺序:', sortedRegions.map(([id]) => id));
+        
+        // 布局参数
+        const padding = 40;
+        const gap = 20; // 减少间距，使更紧凑
+        let currentX = padding;
+        let currentY = padding;
+        let maxRowHeight = 0;
+        
+        // 动态计算最大宽度（基于最大区域宽度）
+        const maxRegionWidth = Math.max(...sortedRegions.map(([_, data]) => data.w));
+        const maxWidth = Math.max(2500, maxRegionWidth * 2 + padding * 2); // 至少能容纳两个最大区域
+        
+        // 提取各区域的纹理
+        const regionTextures: Record<string, string> = {};
+        if (dielineType === 'design' && config.textureUrl) {
+            for (const [regionId, pathData] of sortedRegions) {
+                try {
+                    const texture = await extractRegionTexture(
+                        config.textureUrl!,
+                        regionId,
+                        pathData.w,
+                        pathData.h,
+                        canvasWidth,
+                        canvasHeight
+                    );
+                    regionTextures[regionId] = texture;
+                } catch (error) {
+                    console.warn(`Failed to extract texture for ${regionId}:`, error);
+                    regionTextures[regionId] = config.textureUrl!;
+                }
+            }
+        }
+        
+        // 生成SVG内容
+        const patternDefs: string[] = [];
+        const pathGroups: string[] = [];
+        
+        // 颜色映射（用于区分不同区域）
+        const colorMap: Record<number, string> = {
+            0: strokeColor,
+            1: strokeColor === '#00FF00' ? '#0088ff' : strokeColor,
+            2: strokeColor === '#00FF00' ? '#ff6600' : strokeColor,
+            3: strokeColor === '#00FF00' ? '#ff00ff' : strokeColor,
+            4: strokeColor === '#00FF00' ? '#ffff00' : strokeColor,
+        };
+        
+        // 使用排序后的区域列表进行布局
+        sortedRegions.forEach(([regionId, pathData], index) => {
+            const regionWidth = pathData.w;
+            const regionHeight = pathData.h;
+            
+            // 验证数据有效性
+            if (!pathData.d || !pathData.d.trim()) {
+                console.warn(`⚠️ 区域 ${regionId} 的路径数据为空，跳过`);
+                return;
+            }
+            
+            if (!regionWidth || !regionHeight || regionWidth <= 0 || regionHeight <= 0) {
+                console.warn(`⚠️ 区域 ${regionId} 的尺寸无效 (${regionWidth}x${regionHeight})，跳过`);
+                return;
+            }
+            
+            // 检查是否需要换行
+            if (currentX + regionWidth + padding > maxWidth) {
+                currentX = padding;
+                currentY += maxRowHeight + gap;
+                maxRowHeight = 0;
+            }
+            
+            // 更新行高
+            maxRowHeight = Math.max(maxRowHeight, regionHeight);
+            
+            const category = categorizeRegion(regionId);
+            console.log(`✅ 处理区域 ${regionId} (${category.type}): 位置(${currentX}, ${currentY}), 尺寸(${regionWidth}x${regionHeight})`);
+            
+            // 生成纹理pattern（如果是设计文件）
+            if (dielineType === 'design' && config.textureUrl && regionTextures[regionId]) {
+                const patternId = `texture_${regionId.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                patternDefs.push(
+                    `<pattern id="${patternId}" patternUnits="userSpaceOnUse" width="${regionWidth}" height="${regionHeight}">
+                        <image href="${regionTextures[regionId]}" x="0" y="0" width="${regionWidth}" height="${regionHeight}" preserveAspectRatio="none"/>
+                    </pattern>`
+                );
+            }
+            
+            // 生成路径组
+            const fillColor = dielineType === 'design' && config.textureUrl && regionTextures[regionId]
+                ? `url(#texture_${regionId.replace(/[^a-zA-Z0-9]/g, '_')})`
+                : '#f0f0f0';
+            
+            const regionStrokeColor = colorMap[index % Object.keys(colorMap).length] || strokeColor;
+            
+            // 计算文本位置（居中）
+            const textX = currentX + regionWidth / 2;
+            const textY = currentY + regionHeight / 2;
+            
+            // 确保路径数据有效
+            const sanitizedPath = pathData.d.trim();
+            if (!sanitizedPath || sanitizedPath.length === 0) {
+                console.warn(`⚠️ 区域 ${regionId} 的路径为空，跳过`);
+                return;
+            }
+            
+            pathGroups.push(
+                `<g id="${regionId.replace(/[^a-zA-Z0-9]/g, '_')}" transform="translate(${currentX}, ${currentY})">
+                    <path d="${sanitizedPath}" 
+                          fill="${fillColor}" 
+                          stroke="${regionStrokeColor}" 
+                          stroke-width="${strokeWidth}"
+                          stroke-dasharray="${strokeDasharray}"/>
+                    <text x="${textX - currentX}" y="${textY - currentY}" font-size="${Math.max(12, Math.min(regionWidth, regionHeight) / 20)}" fill="#999" text-anchor="middle" font-weight="bold">${regionId}</text>
+                </g>`
+            );
+            
+            // 移动到下一个位置
+            currentX += regionWidth + gap;
+        });
+        
+        // 计算总尺寸 - 使用实际布局后的尺寸
+        const actualTotalWidth = Math.max(
+            currentX, // 当前行的结束位置
+            ...sortedRegions.map(([_, pathData]) => pathData.w + padding * 2) // 至少能容纳最大的单个区域
+        );
+        const totalWidth = actualTotalWidth;
+        const totalHeight = currentY + maxRowHeight + padding;
+        
+        console.log(`📐 SVG总尺寸: ${totalWidth}x${totalHeight}`);
+        console.log(`📦 生成的路径组数量: ${pathGroups.length} / 总区域数: ${sortedRegions.length}`);
+        console.log(`📋 区域排序顺序:`, sortedRegions.map(([id]) => id));
+        
+        if (pathGroups.length !== sortedRegions.length) {
+            console.warn(`⚠️ 警告: 只处理了 ${pathGroups.length} 个区域，但总共有 ${sortedRegions.length} 个区域`);
+        }
+        
+        const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${totalWidth}" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}" xmlns="http://www.w3.org/2000/svg">
+    ${patternDefs.length > 0 ? `<defs>${patternDefs.join('\n        ')}</defs>` : ''}
+    ${pathGroups.join('\n    ')}
+</svg>`;
+        
+        return svgContent;
+    };
+    
     // 执行刀版导出
     const executeDielineExport = async () => {
         try {
             setShowExportModal(false);
             
-            // 生成真实的T恤刀版SVG数据
+            // 生成刀版SVG数据
             const generateDielineSVG = async () => {
-                // 使用真实的T恤裁片路径
                 const strokeColor = dielineColorMode === 'cmyk' ? '#00FF00' : '#000000';
                 const strokeWidth = 2;
                 const strokeDasharray = dielineType === 'cutline' ? '10,5' : '0';
+                
+                // 优先使用用户上传的SVG文件（如果存在）
+                if (config.dielineFileUrl) {
+                    console.log('📋 使用用户上传的SVG文件:', config.dielineFileUrl);
+                    try {
+                        const response = await fetch(config.dielineFileUrl);
+                        if (!response.ok) {
+                            throw new Error(`Failed to fetch SVG: ${response.statusText}`);
+                        }
+                        let svgContent = await response.text();
+                        
+                        // 如果是刀线模式，添加虚线样式到所有path元素
+                        if (dielineType === 'cutline') {
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(svgContent, 'image/svg+xml');
+                            const paths = doc.querySelectorAll('path');
+                            paths.forEach((path) => {
+                                path.setAttribute('stroke-dasharray', '10,5');
+                                // 确保有stroke属性
+                                if (!path.getAttribute('stroke')) {
+                                    path.setAttribute('stroke', strokeColor);
+                                }
+                                if (!path.getAttribute('stroke-width')) {
+                                    path.setAttribute('stroke-width', String(strokeWidth));
+                                }
+                            });
+                            svgContent = new XMLSerializer().serializeToString(doc);
+                        }
+                        
+                        console.log('✅ 成功加载用户上传的SVG文件');
+                        return svgContent;
+                    } catch (error) {
+                        console.error('⚠️ 加载SVG文件失败:', error);
+                        // 继续使用回退方案
+                    }
+                }
+                
+                // 回退方案：使用动态SVG路径（实际模型数据）
+                const dynamicPaths = config.dynamicSVGPaths || {};
+                const pathCount = Object.keys(dynamicPaths).length;
+                
+                console.log('📋 使用动态路径生成SVG，路径数量:', pathCount);
+                console.log('📋 动态路径详情:', Object.keys(dynamicPaths).map(key => ({
+                    key,
+                    hasPath: !!dynamicPaths[key]?.d,
+                    width: dynamicPaths[key]?.w,
+                    height: dynamicPaths[key]?.h
+                })));
+                
+                if (pathCount > 0) {
+                    // 使用实际模型的SVG数据
+                    const dynamicSVG = await generateDynamicDielineSVG(dynamicPaths);
+                    if (dynamicSVG) {
+                        console.log('✅ 成功生成动态SVG');
+                        return dynamicSVG;
+                    } else {
+                        console.warn('⚠️ 动态SVG生成失败，使用回退方案');
+                    }
+                } else {
+                    console.warn('⚠️ 没有动态路径数据，使用回退方案');
+                }
+                
+                // 回退方案：如果没有动态路径，使用硬编码的T恤模板（并警告用户）
+                console.warn('No dynamic SVG paths found, using fallback template');
+                if (language === 'zh') {
+                    alert('警告：当前模型没有提取到裁片数据，将使用默认模板。请确保模型已正确上传并包含UV映射信息。');
+                } else {
+                    alert('Warning: No dieline data found for this model, using default template. Please ensure the model is properly uploaded with UV mapping.');
+                }
                 
                 // 画布尺寸
                 const canvasWidth = 2048;
                 const canvasHeight = 1024;
                 
-                // 提取各区域的纹理
+                // 提取各区域的纹理（回退方案）
                 let textureFront = config.textureUrl || '';
                 let textureBack = config.textureUrl || '';
                 let textureSleeve = config.textureUrl || '';
                 let textureCollar = config.textureUrl || '';
                 
                 if (dielineType === 'design' && config.textureUrl) {
-                    // 根据dynamicSVGPaths提取各区域
-                    const dynamicPaths = config.dynamicSVGPaths || {};
+                    // 尝试从dynamicSVGPaths提取纹理（即使路径是硬编码的）
                     const regionKeys = Object.keys(dynamicPaths);
                     
-                    // 尝试提取各区域纹理（支持多种命名方式）
-                    // Front区域：region_1, front, Front Body等
                     const frontKey = regionKeys.find(k => 
                         k.toLowerCase().includes('front') || 
                         k.toLowerCase().includes('region_1') ||
@@ -313,7 +695,6 @@ const Designer: React.FC = () => {
                         textureFront = await extractRegionTexture(config.textureUrl, frontKey, 1065, 1502.5, canvasWidth, canvasHeight);
                     }
                     
-                    // Back区域：region_4, back, Back Body等
                     const backKey = regionKeys.find(k => 
                         k.toLowerCase().includes('back') || 
                         k.toLowerCase().includes('region_4') ||
@@ -323,7 +704,6 @@ const Designer: React.FC = () => {
                         textureBack = await extractRegionTexture(config.textureUrl, backKey, 1060.5, 1502.5, canvasWidth, canvasHeight);
                     }
                     
-                    // Sleeve区域：region_2, region_3, sleeve等
                     const sleeveKey = regionKeys.find(k => 
                         k.toLowerCase().includes('sleeve') || 
                         k.toLowerCase().includes('region_2') ||
@@ -334,13 +714,13 @@ const Designer: React.FC = () => {
                         textureSleeve = await extractRegionTexture(config.textureUrl, sleeveKey, 773, 531, canvasWidth, canvasHeight);
                     }
                     
-                    // Collar区域
                     const collarKey = regionKeys.find(k => k.toLowerCase().includes('collar'));
                     if (collarKey) {
                         textureCollar = await extractRegionTexture(config.textureUrl, collarKey, 773, 170, canvasWidth, canvasHeight);
                     }
                 }
                 
+                // 硬编码的T恤模板（仅作为回退）
                 const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="3100" height="2000" viewBox="0 0 3100 2000" xmlns="http://www.w3.org/2000/svg">
     ${dielineType === 'design' && config.textureUrl ? `
@@ -715,94 +1095,118 @@ const Designer: React.FC = () => {
                             {/* Left Preview */}
                             <div className="flex-1 bg-gray-50 flex flex-col items-center justify-center p-6">
                                 {exportTab === 'dieline' ? (
-                                    // Dieline Preview: Show SVG cutlines with real T-shirt pattern
-                                    <svg width="780" height="520" viewBox="0 0 3100 2000" className="" preserveAspectRatio="xMidYMid meet">
-                                        <defs>
-                                            {dielineType === 'design' && config.textureUrl && (
-                                                <>
-                                                    {/* Front texture */}
-                                                    <pattern id="textureFront" patternUnits="userSpaceOnUse" width="1065" height="1502.5" x="0" y="0">
-                                                        <image href={config.textureUrl} x="0" y="0" width="1065" height="1502.5" preserveAspectRatio="xMidYMid slice"/>
-                                                    </pattern>
-                                                    {/* Back texture */}
-                                                    <pattern id="textureBack" patternUnits="userSpaceOnUse" width="1060.5" height="1502.5" x="1065" y="0">
-                                                        <image href={config.textureUrl} x="0" y="0" width="1060.5" height="1502.5" preserveAspectRatio="xMidYMid slice"/>
-                                                    </pattern>
-                                                    {/* Sleeve texture */}
-                                                    <pattern id="textureSleeve" patternUnits="userSpaceOnUse" width="773" height="531">
-                                                        <image href={config.textureUrl} x="0" y="0" width="773" height="531" preserveAspectRatio="xMidYMid slice"/>
-                                                    </pattern>
-                                                    {/* Collar texture */}
-                                                    <pattern id="textureCollar" patternUnits="userSpaceOnUse" width="773" height="170">
-                                                        <image href={config.textureUrl} x="0" y="0" width="773" height="170" preserveAspectRatio="xMidYMid slice"/>
-                                                    </pattern>
-                                                </>
-                                            )}
-                                        </defs>
-                                                
-                                                {/* Front Body - Real T-shirt shape */}
-                                                <g transform="translate(0, 0)">
-                                                    <path 
-                                                        d="M0,185Q154,430.5,48.5,527L48.5,1502.5L1017,1502.5L1017,527Q902.5,436,1065,185Q850,58,754,0Q717,234.5,533,234.5Q351,241.5,311,0L0,185Z"
-                                                        fill={dielineType === 'design' && config.textureUrl ? 'url(#textureFront)' : '#f0f0f0'} 
-                                                        stroke="#00ff00" 
-                                                        strokeWidth="4"
-                                                        strokeDasharray={dielineType === 'cutline' ? '10,5' : '0'}
-                                                    />
-                                                    <text x="532.5" y="750" fontSize="48" fill="#999" textAnchor="middle" fontWeight="bold">Front</text>
-                                                </g>
-                                                
-                                                {/* Back Body - Real T-shirt shape */}
-                                                <g transform="translate(1165, 0)">
-                                                    <path 
-                                                        d="M0,1502.5006L1060.5,1502.5006L1060.5,510.00049Q895.5,385.50586,1028,106.00307Q793,36.505859,692.5,0Q591,39.005859,525,39.005859Q436.5,39.005859,373.5,0L38,106.00391Q152,441.00586,0.5,510.00049Q0.5,641.00049,0,1502.5006Z"
-                                                        fill={dielineType === 'design' && config.textureUrl ? 'url(#textureBack)' : '#f0f0f0'} 
-                                                        stroke="#00ff00" 
-                                                        strokeWidth="4"
-                                                        strokeDasharray={dielineType === 'cutline' ? '10,5' : '0'}
-                                                    />
-                                                    <text x="530" y="750" fontSize="48" fill="#999" textAnchor="middle" fontWeight="bold">Back</text>
-                                                </g>
-                                                
-                                                {/* Left Sleeve */}
-                                                <g transform="translate(2240, 0)">
-                                                    <path 
-                                                        d="M0,212L0,531L773,531L773,212C667.5,182,579.75,0,386.5,0C193.25,0,93.5,187,0,212Z"
-                                                        fill={dielineType === 'design' && config.textureUrl ? 'url(#textureSleeve)' : '#f0f0f0'} 
-                                                        stroke="#0088ff" 
-                                                        strokeWidth="4"
-                                                        strokeDasharray={dielineType === 'cutline' ? '10,5' : '0'}
-                                                    />
-                                                    <text x="386.5" y="300" fontSize="36" fill="#999" textAnchor="middle" fontWeight="bold">Sleeve L</text>
-                                                </g>
-                                                
-                                                {/* Right Sleeve */}
-                                                <g transform="translate(2240, 600)">
-                                                    <path 
-                                                        d="M0,212L0,531L773,531L773,212C667.5,182,579.75,0,386.5,0C193.25,0,93.5,187,0,212Z"
-                                                        fill={dielineType === 'design' && config.textureUrl ? 'url(#textureSleeve)' : '#f0f0f0'} 
-                                                        stroke="#0088ff" 
-                                                        strokeWidth="4"
-                                                        strokeDasharray={dielineType === 'cutline' ? '10,5' : '0'}
-                                                    />
-                                                    <text x="386.5" y="300" fontSize="36" fill="#999" textAnchor="middle" fontWeight="bold">Sleeve R</text>
-                                                </g>
-                                                
-                                                {/* Collar */}
-                                                <g transform="translate(2240, 1200)">
-                                                    <rect 
-                                                        x="0" 
-                                                        y="0" 
-                                                        width="773" 
-                                                        height="170"
-                                                        fill={dielineType === 'design' && config.textureUrl ? 'url(#textureCollar)' : '#f0f0f0'} 
-                                                        stroke="#ff6600" 
-                                                        strokeWidth="4"
-                                                        strokeDasharray={dielineType === 'cutline' ? '10,5' : '0'}
-                                                    />
-                                                    <text x="386.5" y="100" fontSize="36" fill="#999" textAnchor="middle" fontWeight="bold">Collar</text>
-                                                </g>
-                                    </svg>
+                                    // Dieline Preview: 使用动态SVG路径或回退到硬编码模板
+                                    (() => {
+                                        const dynamicPaths = config.dynamicSVGPaths || {};
+                                        const previewData = Object.keys(dynamicPaths).length > 0 
+                                            ? generatePreviewDielineSVG(dynamicPaths)
+                                            : null;
+                                        
+                                        if (previewData) {
+                                            // 使用实际模型的SVG数据
+                                            return (
+                                                <svg 
+                                                    width="780" 
+                                                    height="520" 
+                                                    viewBox={`0 0 ${previewData.totalWidth} ${previewData.totalHeight}`} 
+                                                    className="" 
+                                                    preserveAspectRatio="xMidYMid meet"
+                                                >
+                                                    <defs>
+                                                        {previewData.patternDefs}
+                                                    </defs>
+                                                    {previewData.pathGroups}
+                                                </svg>
+                                            );
+                                        } else {
+                                            // 回退到硬编码模板
+                                            return (
+                                                <svg width="780" height="520" viewBox="0 0 3100 2000" className="" preserveAspectRatio="xMidYMid meet">
+                                                    <defs>
+                                                        {dielineType === 'design' && config.textureUrl && (
+                                                            <>
+                                                                <pattern id="textureFront" patternUnits="userSpaceOnUse" width="1065" height="1502.5" x="0" y="0">
+                                                                    <image href={config.textureUrl} x="0" y="0" width="1065" height="1502.5" preserveAspectRatio="xMidYMid slice"/>
+                                                                </pattern>
+                                                                <pattern id="textureBack" patternUnits="userSpaceOnUse" width="1060.5" height="1502.5" x="1065" y="0">
+                                                                    <image href={config.textureUrl} x="0" y="0" width="1060.5" height="1502.5" preserveAspectRatio="xMidYMid slice"/>
+                                                                </pattern>
+                                                                <pattern id="textureSleeve" patternUnits="userSpaceOnUse" width="773" height="531">
+                                                                    <image href={config.textureUrl} x="0" y="0" width="773" height="531" preserveAspectRatio="xMidYMid slice"/>
+                                                                </pattern>
+                                                                <pattern id="textureCollar" patternUnits="userSpaceOnUse" width="773" height="170">
+                                                                    <image href={config.textureUrl} x="0" y="0" width="773" height="170" preserveAspectRatio="xMidYMid slice"/>
+                                                                </pattern>
+                                                            </>
+                                                        )}
+                                                    </defs>
+                                                    
+                                                    {/* Front Body - Fallback template */}
+                                                    <g transform="translate(0, 0)">
+                                                        <path 
+                                                            d="M0,185Q154,430.5,48.5,527L48.5,1502.5L1017,1502.5L1017,527Q902.5,436,1065,185Q850,58,754,0Q717,234.5,533,234.5Q351,241.5,311,0L0,185Z"
+                                                            fill={dielineType === 'design' && config.textureUrl ? 'url(#textureFront)' : '#f0f0f0'} 
+                                                            stroke="#00ff00" 
+                                                            strokeWidth="4"
+                                                            strokeDasharray={dielineType === 'cutline' ? '10,5' : '0'}
+                                                        />
+                                                        <text x="532.5" y="750" fontSize="48" fill="#999" textAnchor="middle" fontWeight="bold">Front</text>
+                                                    </g>
+                                                    
+                                                    {/* Back Body - Fallback template */}
+                                                    <g transform="translate(1165, 0)">
+                                                        <path 
+                                                            d="M0,1502.5006L1060.5,1502.5006L1060.5,510.00049Q895.5,385.50586,1028,106.00307Q793,36.505859,692.5,0Q591,39.005859,525,39.005859Q436.5,39.005859,373.5,0L38,106.00391Q152,441.00586,0.5,510.00049Q0.5,641.00049,0,1502.5006Z"
+                                                            fill={dielineType === 'design' && config.textureUrl ? 'url(#textureBack)' : '#f0f0f0'} 
+                                                            stroke="#00ff00" 
+                                                            strokeWidth="4"
+                                                            strokeDasharray={dielineType === 'cutline' ? '10,5' : '0'}
+                                                        />
+                                                        <text x="530" y="750" fontSize="48" fill="#999" textAnchor="middle" fontWeight="bold">Back</text>
+                                                    </g>
+                                                    
+                                                    {/* Left Sleeve - Fallback template */}
+                                                    <g transform="translate(2240, 0)">
+                                                        <path 
+                                                            d="M0,212L0,531L773,531L773,212C667.5,182,579.75,0,386.5,0C193.25,0,93.5,187,0,212Z"
+                                                            fill={dielineType === 'design' && config.textureUrl ? 'url(#textureSleeve)' : '#f0f0f0'} 
+                                                            stroke="#0088ff" 
+                                                            strokeWidth="4"
+                                                            strokeDasharray={dielineType === 'cutline' ? '10,5' : '0'}
+                                                        />
+                                                        <text x="386.5" y="300" fontSize="36" fill="#999" textAnchor="middle" fontWeight="bold">Sleeve L</text>
+                                                    </g>
+                                                    
+                                                    {/* Right Sleeve - Fallback template */}
+                                                    <g transform="translate(2240, 600)">
+                                                        <path 
+                                                            d="M0,212L0,531L773,531L773,212C667.5,182,579.75,0,386.5,0C193.25,0,93.5,187,0,212Z"
+                                                            fill={dielineType === 'design' && config.textureUrl ? 'url(#textureSleeve)' : '#f0f0f0'} 
+                                                            stroke="#0088ff" 
+                                                            strokeWidth="4"
+                                                            strokeDasharray={dielineType === 'cutline' ? '10,5' : '0'}
+                                                        />
+                                                        <text x="386.5" y="300" fontSize="36" fill="#999" textAnchor="middle" fontWeight="bold">Sleeve R</text>
+                                                    </g>
+                                                    
+                                                    {/* Collar - Fallback template */}
+                                                    <g transform="translate(2240, 1200)">
+                                                        <rect 
+                                                            x="0" 
+                                                            y="0" 
+                                                            width="773" 
+                                                            height="170"
+                                                            fill={dielineType === 'design' && config.textureUrl ? 'url(#textureCollar)' : '#f0f0f0'} 
+                                                            stroke="#ff6600" 
+                                                            strokeWidth="4"
+                                                            strokeDasharray={dielineType === 'cutline' ? '10,5' : '0'}
+                                                        />
+                                                        <text x="386.5" y="100" fontSize="36" fill="#999" textAnchor="middle" fontWeight="bold">Collar</text>
+                                                    </g>
+                                                </svg>
+                                            );
+                                        }
+                                    })()
                                 ) : (
                                     // Mockup Preview: Show 3D scene
                                     <>

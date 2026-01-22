@@ -11,8 +11,18 @@ interface SceneProps {
 }
 
 // GLB Model Loader Component
-const GLBModel: React.FC<{ url: string; config: PackagingState; materialProps: any; onHover: (v: boolean) => void; onClick?: () => void }> = ({ url, config, materialProps, onHover, onClick }) => {
+const GLBModel: React.FC<{ 
+  url: string; 
+  config: PackagingState; 
+  materialProps: any; 
+  onHover: (v: boolean) => void; 
+  onClick?: () => void;
+  onModelLoaded?: () => void; // 新增：模型加载完成回调
+}> = ({ url, config, materialProps, onHover, onClick, onModelLoaded }) => {
   const { scene } = useGLTF(url);
+  const modelRef = useRef<THREE.Group | null>(null);
+  const hasNotifiedLoaded = useRef(false);
+  
   const clone = useMemo(() => {
     const c = scene.clone();
 
@@ -41,8 +51,11 @@ const GLBModel: React.FC<{ url: string; config: PackagingState; materialProps: a
     return c;
   }, [scene, config.hiddenMeshes]);
 
+
   // Apply material to meshes
   useEffect(() => {
+    if (!clone) return;
+    
     clone.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
@@ -82,13 +95,35 @@ const GLBModel: React.FC<{ url: string; config: PackagingState; materialProps: a
         mesh.receiveShadow = true;
       }
     });
-  }, [clone, materialProps]);
+    
+    // 材质应用完成后，等待下一帧确保渲染完成，然后通知加载完成
+    if (onModelLoaded && !hasNotifiedLoaded.current) {
+      // 使用requestAnimationFrame确保在渲染后通知
+      const frameId = requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!hasNotifiedLoaded.current) {
+            hasNotifiedLoaded.current = true;
+            onModelLoaded();
+          }
+        });
+      });
+      
+      return () => {
+        cancelAnimationFrame(frameId);
+      };
+    }
+  }, [clone, materialProps, onModelLoaded]);
 
   // Click vs Drag Detection
   const downPoint = useRef<{ x: number, y: number } | null>(null);
 
+  useEffect(() => {
+    modelRef.current = clone;
+  }, [clone]);
+
   return (
     <primitive
+      ref={modelRef}
       object={clone}
       scale={[1, 1, 1]}
       onPointerOver={(e: any) => { e.stopPropagation(); onHover(true); }}
@@ -115,7 +150,12 @@ const GLBModel: React.FC<{ url: string; config: PackagingState; materialProps: a
   );
 };
 
-export const PackagingMesh: React.FC<{ config: PackagingState; overrideTexture?: THREE.Texture | null; onClick?: () => void }> = ({ config, overrideTexture, onClick }) => {
+export const PackagingMesh: React.FC<{ 
+  config: PackagingState; 
+  overrideTexture?: THREE.Texture | null; 
+  onClick?: () => void;
+  onModelLoaded?: () => void; // 新增：模型加载完成回调
+}> = ({ config, overrideTexture, onClick, onModelLoaded }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const [hovered, setHover] = useState(false);
 
@@ -235,9 +275,27 @@ export const PackagingMesh: React.FC<{ config: PackagingState; overrideTexture?:
     return null; // 禁用分割，直接使用原始UV
   }, [activeTexture, config.shape]);
 
+  // 对于标准形状（非GLB模型），在渲染后立即通知加载完成
+  useEffect(() => {
+    if (!config.modelFileUrl && onModelLoaded) {
+      // 标准形状是同步创建的，延迟一小段时间确保渲染完成
+      const timer = setTimeout(() => {
+        onModelLoaded();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [config.modelFileUrl, config.shape, onModelLoaded]);
+
   // If modelFileUrl is provided, load GLB model
   if (config.modelFileUrl) {
-    return <GLBModel url={config.modelFileUrl} config={config} materialProps={baseMaterialProps} onHover={setHover} onClick={onClick} />;
+    return <GLBModel 
+      url={config.modelFileUrl} 
+      config={config} 
+      materialProps={baseMaterialProps} 
+      onHover={setHover} 
+      onClick={onClick}
+      onModelLoaded={onModelLoaded}
+    />;
   }
 
   const renderStandardMesh = (geometry: React.ReactNode, position: [number, number, number] = [0, 0, 0]) => (
@@ -490,24 +548,26 @@ const Scene: React.FC<SceneProps> = ({ config, onModelClick }) => {
   const [zoom, setZoom] = useState(1.0);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingStage, setLoadingStage] = useState<'building' | 'materials'>('building');
+  const modelLoadedRef = useRef(false);
 
-  // Simulate loading stages
+  // 当模型真正加载完成时调用
+  const handleModelLoaded = () => {
+    if (!modelLoadedRef.current) {
+      modelLoadedRef.current = true;
+      setLoadingStage('materials');
+      // 再等待一小段时间确保材质也应用完成
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 300);
+    }
+  };
+
+  // 当模型URL或形状改变时，重置loading状态
   useEffect(() => {
+    modelLoadedRef.current = false;
     setIsLoading(true);
     setLoadingStage('building');
-
-    const timer1 = setTimeout(() => {
-      setLoadingStage('materials');
-    }, 800);
-
-    const timer2 = setTimeout(() => {
-      setIsLoading(false);
-    }, 1600);
-
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
+    // 等待handleModelLoaded被调用（无论是GLB模型还是标准形状）
   }, [config.modelFileUrl, config.shape]);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -616,7 +676,11 @@ const Scene: React.FC<SceneProps> = ({ config, onModelClick }) => {
           <directionalLight position={[-5, 5, 5]} intensity={0.3} />
           <group position={[0, 0, 0]}>
             <Center>
-              <PackagingMesh config={config} onClick={onModelClick} />
+              <PackagingMesh 
+                config={config} 
+                onClick={onModelClick}
+                onModelLoaded={handleModelLoaded}
+              />
             </Center>
           </group>
           <CameraControls controlsRef={controlsRef} cameraRef={cameraRef} onZoomChange={setZoom} />
