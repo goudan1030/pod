@@ -71,16 +71,7 @@ export const ModelCardSkeleton: React.FC = () => {
 
             {/* 信息区域骨架 */}
             <div className="p-4 border-t border-gray-50">
-                {/* 标题骨架 */}
-                <SkeletonBox className="h-4 w-3/4 mb-3" />
-
-                {/* 变体圆点骨架 */}
-                <div className="flex items-center gap-2">
-                    <SkeletonBox className="w-3 h-3 rounded-full" />
-                    <SkeletonBox className="w-3 h-3 rounded-full" />
-                    <SkeletonBox className="w-3 h-3 rounded-full" />
-                    <SkeletonBox className="h-3 w-16 ml-1" />
-                </div>
+                <SkeletonBox className="h-4 w-3/4" />
             </div>
         </div>
     );

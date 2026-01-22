@@ -8,6 +8,12 @@ This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/drive/18hbAMqO81swe6Bx9yE3bm6wkPPhyKMC_
 
+## 协作者推送代码
+
+若 `git push` 报 `Invalid username or token` / `Password authentication is not supported`，说明不能用账号密码推送。请按 [docs/GITHUB_PUSH.md](docs/GITHUB_PUSH.md) 配置 **Personal Access Token** 或 **SSH** 后再推送。
+
+---
+
 ## Run Locally
 
 **Prerequisites:**  Node.js

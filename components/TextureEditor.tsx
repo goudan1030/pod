@@ -481,6 +481,24 @@ const ColorBlockEditorToolbar: React.FC<{
     );
 };
 
+/** 构建 Canvas ctx.font 字符串；含空格的字体名自动加引号，确保生效 */
+function buildFontString(p: { fontStyle?: string; fontWeight?: string; fontSize?: number; fontFamily?: string }): string {
+    const fontStyle = p.fontStyle || 'normal';
+    const fontWeight = p.fontWeight || 'normal';
+    const fontSize = p.fontSize ?? 24;
+    let fontFamily = p.fontFamily || 'Arial';
+    if (fontFamily.includes(' ')) fontFamily = `"${fontFamily}"`;
+    return `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+}
+
+// 西文 + 中文字体；中文需用支持 CJK 的字体才能看出区别，否则会回退到系统默认
+const COMMON_FONTS = [
+    'Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Verdana', 'Georgia',
+    'Palatino', 'Garamond', 'Bookman', 'Comic Sans MS', 'Trebuchet MS', 'Impact',
+    'PingFang SC', 'Microsoft YaHei', 'SimSun', 'SimHei', 'KaiTi', 'FangSong',
+    'Noto Sans SC', 'Source Han Sans SC', 'STSong', 'STKaiti',
+];
+
 // 文字编辑工具栏组件
 const TextEditorToolbar: React.FC<{
     layer: Layer;
@@ -497,8 +515,6 @@ const TextEditorToolbar: React.FC<{
         textAlign: 'center',
         textDecoration: 'none',
     };
-
-    const commonFonts = ['Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Verdana', 'Georgia', 'Palatino', 'Garamond', 'Bookman', 'Comic Sans MS', 'Trebuchet MS', 'Impact'];
 
     return (
         <div
@@ -529,7 +545,7 @@ const TextEditorToolbar: React.FC<{
                     onChange={(e) => onUpdate({ fontFamily: e.target.value })}
                     className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:border-brand-500"
                 >
-                    {commonFonts.map(font => (
+                    {COMMON_FONTS.map(font => (
                         <option key={font} value={font}>{font}</option>
                     ))}
                 </select>
@@ -1843,7 +1859,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
         let textHeight = 50;
         
         if (tempCtx) {
-            tempCtx.font = `${textProps.fontStyle} ${textProps.fontWeight} ${textProps.fontSize}px ${textProps.fontFamily}`;
+            tempCtx.font = buildFontString(textProps);
             const text = '文字';
             const metrics = tempCtx.measureText(text);
             textWidth = metrics.width;
@@ -1903,7 +1919,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                     const fontStyle = newTextProps.fontStyle || 'normal';
                     const fontSize = newTextProps.fontSize || 24;
                     const fontFamily = newTextProps.fontFamily || 'Arial';
-                    tempCtx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                    tempCtx.font = buildFontString({ fontStyle, fontWeight, fontSize, fontFamily });
                     
                     const text = newSrc || '文字';
                     const metrics = tempCtx.measureText(text);
@@ -1963,7 +1979,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                 const fontStyle = textProps.fontStyle || 'normal';
                 const fontSize = textProps.fontSize || 24;
                 const fontFamily = textProps.fontFamily || 'Arial';
-                tempCtx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                tempCtx.font = buildFontString({ fontStyle, fontWeight, fontSize, fontFamily });
                 
                 const text = layer.src || '文字';
                 const metrics = tempCtx.measureText(text);
@@ -2164,15 +2180,14 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                         ctx.fillStyle = textProps.color || '#000000';
                         ctx.strokeStyle = textProps.color || '#000000';
                         
-                        // 构建字体字符串
+                        // 构建字体字符串（含空格的字体名加引号，确保 Canvas 生效）
                         const fontWeight = textProps.fontWeight || 'normal';
                         const fontStyle = textProps.fontStyle || 'normal';
-                        // 字体大小也需要缩放
                         const fontSize = (pathToUse && (scaleX !== 1 || scaleY !== 1)) 
                             ? (textProps.fontSize || 24) / Math.min(scaleX, scaleY)
                             : (textProps.fontSize || 24);
                         const fontFamily = textProps.fontFamily || 'Arial';
-                        ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                        ctx.font = buildFontString({ fontStyle, fontWeight, fontSize, fontFamily });
                         
                         // 设置文本对齐
                         const textAlign = textProps.textAlign || 'center';
@@ -2245,14 +2260,12 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                     ctx.fillStyle = textProps.color || '#000000';
                     ctx.strokeStyle = textProps.color || '#000000';
                     
-                    // 构建字体字符串
                     const fontWeight = textProps.fontWeight || 'normal';
                     const fontStyle = textProps.fontStyle || 'normal';
                     const fontSize = textProps.fontSize || 24;
                     const fontFamily = textProps.fontFamily || 'Arial';
-                    ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                    ctx.font = buildFontString({ fontStyle, fontWeight, fontSize, fontFamily });
                     
-                    // 设置文本对齐
                     const textAlign = textProps.textAlign || 'center';
                     ctx.textAlign = textAlign === 'left' ? 'left' : textAlign === 'right' ? 'right' : 'center';
                     ctx.textBaseline = 'middle';
@@ -2260,7 +2273,6 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                     const text = layer.src || '文字';
                     const x = textAlign === 'left' ? -layer.width / 2 : textAlign === 'right' ? layer.width / 2 : 0;
                     
-                    // 绘制文本
                     if (textProps.textDecoration === 'underline') {
                         ctx.fillText(text, x, 0);
                         const metrics = ctx.measureText(text);
@@ -2333,14 +2345,12 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                         fontStyle: 'normal',
                     };
                     
-                    // 设置字体以测量文字
                     const fontWeight = textProps.fontWeight || 'normal';
                     const fontStyle = textProps.fontStyle || 'normal';
                     const fontSize = textProps.fontSize || 24;
                     const fontFamily = textProps.fontFamily || 'Arial';
-                    ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                    ctx.font = buildFontString({ fontStyle, fontWeight, fontSize, fontFamily });
                     
-                    // 测量文字实际宽度和高度
                     const text = layer.src || '文字';
                     const metrics = ctx.measureText(text);
                     const textWidth = metrics.width;
@@ -2447,7 +2457,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                         const fontStyle = textProps.fontStyle || 'normal';
                         const fontSize = textProps.fontSize || 24;
                         const fontFamily = textProps.fontFamily || 'Arial';
-                        tempCtx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+                        tempCtx.font = buildFontString({ fontStyle, fontWeight, fontSize, fontFamily });
                         
                         const text = layer.src || '文字';
                         const metrics = tempCtx.measureText(text);

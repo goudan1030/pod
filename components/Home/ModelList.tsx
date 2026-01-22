@@ -54,13 +54,7 @@ const ModelList: React.FC<ModelListProps> = ({ models, onSelectModel }) => {
 
                         {/* Info Area */}
                         <div className="p-4 border-t border-gray-50">
-                            <h3 className="font-bold text-gray-800 text-sm mb-1 group-hover:text-brand-600 transition-colors line-clamp-1">{model.name}</h3>
-                            <div className="flex items-center gap-2 mt-2">
-                                <div className="w-3 h-3 rounded-full bg-gray-200 border border-white shadow-sm ring-1 ring-gray-100"></div>
-                                <div className="w-3 h-3 rounded-full bg-gray-300 border border-white shadow-sm ring-1 ring-gray-100"></div>
-                                <div className="w-3 h-3 rounded-full bg-gray-400 border border-white shadow-sm ring-1 ring-gray-100"></div>
-                                <span className="text-xs text-gray-400 ml-1">+2 {t('variants')}</span>
-                            </div>
+                            <h3 className="font-bold text-gray-800 text-sm group-hover:text-brand-600 transition-colors line-clamp-1">{model.name}</h3>
                         </div>
                     </div>
                 ))}
