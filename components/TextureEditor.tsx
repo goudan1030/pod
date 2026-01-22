@@ -923,6 +923,7 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
     const [faceColors, setFaceColors] = useState<Record<string, string | null>>({});
     const [activeFaceId, setActiveFaceId] = useState<string | null>(null);
     const [selectedRegionId, setSelectedRegionId] = useState<string | null>(null);
+    const [hoveredRegionId, setHoveredRegionId] = useState<string | null>(null);
     const [colorPickerPos, setColorPickerPos] = useState<{ x: number, y: number } | null>(null);
     const [showColorButton, setShowColorButton] = useState<{ regionId: string; position: { x: number, y: number } } | null>(null);
     const [textEditorPos, setTextEditorPos] = useState<{ x: number, y: number } | null>(null);
@@ -3243,34 +3244,19 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                             style={{ overflow: 'visible' }}
                         >
                             {regions.map((region) => {
-                                const isSelected = selectedRegionId === region.id;
-                                const isHovered = selectedRegionId === region.id;
-                                const hasColor = faceColors[region.id] !== null && faceColors[region.id] !== undefined;
+                                const isHighlight = selectedRegionId === region.id || hoveredRegionId === region.id;
+                                const strokeColor = isHighlight ? '#8b5cf6' : '#d1d5db';
+                                const strokeWidth = isHighlight ? 2.5 : 1;
 
                                 return (
                                     <g
                                         key={region.id}
-                                        onMouseEnter={() => setSelectedRegionId(region.id)}
-                                        onMouseLeave={() => {
-                                            // Keep selected if clicked, otherwise clear on leave
-                                            if (!isSelected) {
-                                                // setSelectedRegionId(null);
-                                            }
+                                        onMouseEnter={() => {
+                                            setSelectedRegionId(region.id);
+                                            setHoveredRegionId(region.id);
                                         }}
+                                        onMouseLeave={() => setHoveredRegionId(null)}
                                     >
-                                        {/* Region Background (if has color) */}
-                                        {hasColor && (
-                                            <rect
-                                                x={region.x}
-                                                y={region.y}
-                                                width={region.w}
-                                                height={region.h}
-                                                fill={faceColors[region.id] || 'transparent'}
-                                                opacity={0.3}
-                                                className="transition-opacity pointer-events-none"
-                                            />
-                                        )}
-
                                         {/* Region Border/Shape - Use actual SVG path if available */}
                                         {(() => {
                                             const pathData = config.dynamicSVGPaths?.[region.id];
@@ -3286,8 +3272,9 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                                         <path
                                                             d={pathData.d}
                                                             fill="transparent"
-                                                            stroke="transparent"
-                                                            strokeWidth={0}
+                                                            stroke={strokeColor}
+                                                            strokeWidth={strokeWidth}
+                                                            vectorEffect="non-scaling-stroke"
                                                             className="cursor-pointer transition-all"
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -3325,8 +3312,8 @@ const TextureEditor: React.FC<TextureEditorProps> = ({ isOpen, onClose, onSave, 
                                                     width={region.w}
                                                     height={region.h}
                                                     fill="transparent"
-                                                    stroke="transparent"
-                                                    strokeWidth={0}
+                                                    stroke={strokeColor}
+                                                    strokeWidth={strokeWidth}
                                                     className="cursor-pointer transition-all"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
