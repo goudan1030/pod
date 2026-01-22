@@ -233,17 +233,6 @@ const EditorSidebar: React.FC<EditorSidebarProps> = ({
                             )}
                         </div>
 
-                        {/* Model Parts Section */}
-                        <div className="bg-gray-50 rounded-xl p-4">
-                            <h3 className="text-xs font-medium text-gray-500 mb-1">自定义部件</h3>
-                            <button className="w-full flex items-center justify-between py-2 hover:bg-gray-100 rounded-lg px-2 transition-colors">
-                                <span className="text-base font-bold text-gray-900">
-                                    {config.hiddenMeshes ? `${config.hiddenMeshes.length} 部件` : '1 部件'}
-                                </span>
-                                <ChevronRight size={20} className="text-gray-400" />
-                            </button>
-                        </div>
-
                         {/* Model ID Section */}
                         <div className="bg-gray-50 rounded-xl p-4">
                             <h3 className="text-xs font-medium text-gray-500 mb-1">模型ID</h3>
